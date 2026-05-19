@@ -22,14 +22,28 @@ export default function LoginPage() {
     e.preventDefault();
 
     try {
-      const res = await api.post('/users/login', form);
 
-      console.log(res.data);
+      const res = await api.post(
+        '/users/login',
+        form
+      );
 
-      localStorage.setItem('token', res.data.token);
+      toast.success('Login successful');
+
+      localStorage.setItem(
+        'token',
+        res.data.token
+      );
+
       navigate('/dashboard');
+
     } catch (err) {
-      alert(err.response?.data?.message || 'Login error');
+
+      toast.error(
+        err.response?.data?.message ||
+        'Login error'
+      );
+
     }
   };
 

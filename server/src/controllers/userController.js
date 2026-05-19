@@ -87,6 +87,23 @@ exports.loginUser = async (req, res) => {
       return res.status(400).json({ message: 'Invalid username or password' });
     }
 
+    try {
+      await pool.query(
+        `
+          INSERT INTO login_logs
+          (user_id, name, role)
+          VALUES ($1, $2, $3)
+        `,
+        [
+          user.id,
+          user.name,
+          user.role
+        ]
+      );
+    } catch (logErr) {
+      console.log('Login log error:', logErr);
+    }
+
     // generate token
     const token = jwt.sign(
       {
@@ -112,3 +129,26 @@ exports.loginUser = async (req, res) => {
   }
 };
 
+exports.getLoginLogs = async (req, res) => {
+  try {
+
+    const result = await pool.query(`
+      SELECT  
+        id,
+        name,
+        role,
+        login_time
+      FROM login_logs
+      ORDER BY login_time DESC
+    `);
+
+    res.json(result.rows);
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      message: 'Error fetching login logs'
+    });
+  }
+};

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../../config/db');
 
-const { createUser, getUsers, loginUser } = require('../controllers/userController');
+const { createUser, getUsers, loginUser, getLoginLogs } = require('../controllers/userController');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 // PUBLIC
@@ -140,6 +140,13 @@ router.get('/me', authMiddleware, async (req, res) => {
     res.status(500).json({ message: 'Error fetching user' });
   }
 });
+
+router.get(
+  '/login-logs',
+  authMiddleware,
+  roleMiddleware(['admin']),
+  getLoginLogs
+);
 
 router.get('/', authMiddleware, roleMiddleware(['admin','teacher']), async (req, res) => {
   const { role } = req.query;

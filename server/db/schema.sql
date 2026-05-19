@@ -224,3 +224,65 @@ ADD COLUMN max_file_size INTEGER; -- dalam MB
 
 ALTER TABLE submissions
 ADD COLUMN grade_letter VARCHAR(5);
+
+CREATE TABLE login_logs (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    name VARCHAR(100),
+    role VARCHAR(20),
+    login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE assignments
+ADD COLUMN type VARCHAR(20) DEFAULT 'upload';
+
+CREATE TABLE questions (
+    id SERIAL PRIMARY KEY,
+
+    assignment_id INTEGER
+    REFERENCES assignments(id)
+    ON DELETE CASCADE,
+
+    question_text TEXT NOT NULL,
+
+    question_type VARCHAR(20) NOT NULL,
+    -- subjective / single_choice
+
+    points INTEGER DEFAULT 0
+);
+
+CREATE TABLE question_choices (
+    id SERIAL PRIMARY KEY,
+
+    question_id INTEGER
+    REFERENCES questions(id)
+    ON DELETE CASCADE,
+
+    option_text TEXT NOT NULL,
+
+    is_correct BOOLEAN DEFAULT false
+);
+
+CREATE TABLE student_answers (
+    id SERIAL PRIMARY KEY,
+
+    question_id INTEGER
+    REFERENCES questions(id)
+    ON DELETE CASCADE,
+
+    student_id INTEGER
+    REFERENCES users(id)
+    ON DELETE CASCADE,
+
+    choice_id INTEGER NULL
+    REFERENCES question_choices(id),
+
+    answer_text TEXT NULL,
+
+    score NUMERIC(5,2),
+
+    teacher_comment TEXT,
+
+    submitted_at TIMESTAMP
+    DEFAULT CURRENT_TIMESTAMP
+);

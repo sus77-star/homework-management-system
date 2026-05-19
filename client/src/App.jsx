@@ -11,6 +11,7 @@ import AssignmentDetail from './pages/AssignmentDetail';
 import ResubmitRequests from './pages/ResubmitRequests';
 import SubmissionsPage from './pages/SubmissionsPage';
 import GradesPage from './pages/GradesPage';
+import LoginRecordsPage from './pages/LoginRecordsPage';
 
 import ProtectedRoute from './components/routes/ProtectedRoute';
 import AdminRoute from './components/routes/AdminRoute';
@@ -54,6 +55,17 @@ function App() {
             <ProtectedRoute>
               <AdminRoute>
                 <ClassesPage />
+              </AdminRoute>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/login-records"
+          element={
+            <ProtectedRoute>
+              <AdminRoute>
+                <LoginRecordsPage />
               </AdminRoute>
             </ProtectedRoute>
           }

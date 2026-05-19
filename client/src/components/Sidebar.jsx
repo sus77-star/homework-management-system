@@ -9,7 +9,7 @@ import {
   GraduationCap,
   ChevronLeft,
   ChevronRight,
-  Trophy
+  Trophy,
 } from 'lucide-react';
 import { jwtDecode } from 'jwt-decode';
 
@@ -46,6 +46,7 @@ export default function Sidebar() {
       { name: 'Users', path: '/users', icon: <Users size={18} /> },
       { name: 'Courses', path: '/courses', icon: <Book size={18} /> },
       { name: 'Classes', path: '/classes', icon: <GraduationCap size={18} /> },
+      { name: 'Login Records', path: '/login-records', icon: <FileText size={18} /> },
     ];
   }
 

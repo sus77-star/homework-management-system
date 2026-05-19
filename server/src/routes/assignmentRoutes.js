@@ -1050,6 +1050,33 @@ router.post(
 
     const { answers } = req.body;
 
+    // =========================
+    // PREVENT DOUBLE SUBMIT
+    // =========================
+    const existing =
+      await pool.query(
+        `
+          SELECT id
+          FROM student_answers sa
+          JOIN questions q
+            ON q.id = sa.question_id
+          WHERE q.assignment_id = $1
+          AND sa.student_id = $2
+          LIMIT 1
+        `,
+        [
+          assignmentId,
+          studentId
+        ]
+      );
+
+    if (existing.rows.length) {
+      return res.status(400).json({
+        message:
+          'Quiz already submitted'
+      });
+    }
+
     try {
 
       // =========================
@@ -1106,20 +1133,67 @@ router.post(
           'single_choice'
         ) {
 
+          // =====================
+          // GET CORRECT ANSWER
+          // =====================
+          const correctResult =
+            await pool.query(
+              `
+                SELECT
+                  id
+                FROM question_choices
+                WHERE question_id = $1
+                AND is_correct = true
+                LIMIT 1
+              `,
+              [q.id]
+            );
+
+          const correctChoiceId =
+            correctResult.rows[0]?.id;
+
+          // =====================
+          // GET QUESTION POINTS
+          // =====================
+          const pointResult =
+            await pool.query(
+              `
+                SELECT points
+                FROM questions
+                WHERE id = $1
+              `,
+              [q.id]
+            );
+
+          const points =
+            pointResult.rows[0]?.points || 0;
+
+          // =====================
+          // AUTO SCORE
+          // =====================
+          const isCorrect =
+            Number(answer) ===
+            Number(correctChoiceId);
+
           await pool.query(
             `
               INSERT INTO student_answers
               (
                 question_id,
                 student_id,
-                choice_id
+                choice_id,
+                score
               )
-              VALUES ($1,$2,$3)
+              VALUES ($1,$2,$3,$4)
             `,
             [
               q.id,
               studentId,
-              answer || null
+              answer || null,
+
+              isCorrect
+                ? points
+                : 0
             ]
           );
         }
@@ -1142,5 +1216,313 @@ router.post(
   }
 );
 
+      // ==============================
+      // GET QUIZ ANSWERS
+      // ==============================
+      router.get(
+        '/:id/quiz-answers',
 
+        authMiddleware,
+        roleMiddleware(['teacher']),
+
+        async (req, res) => {
+
+          const assignmentId = req.params.id;
+
+          try {
+
+            const result =
+              await pool.query(
+                `
+                  SELECT
+                    sa.id AS answer_id,
+
+                    q.id AS question_id,
+                    q.question_text,
+                    q.question_type,
+                    q.points,
+
+                    u.id AS student_id,
+                    u.name AS student_name,
+
+                    sa.answer_text,
+                    sa.choice_id,
+                    sa.score,
+                    sa.teacher_comment,
+
+                    qc.option_text,
+
+                    (
+                      SELECT option_text
+                      FROM question_choices
+                      WHERE question_id = q.id
+                      AND is_correct = true
+                      LIMIT 1
+                    ) AS correct_answer
+
+                  FROM student_answers sa
+
+                  JOIN questions q
+                    ON q.id = sa.question_id
+
+                  JOIN users u
+                    ON u.id = sa.student_id
+
+                  LEFT JOIN question_choices qc
+                    ON qc.id = sa.choice_id
+
+                  WHERE q.assignment_id = $1
+
+                  ORDER BY
+                    u.name ASC,
+                    q.id ASC
+                `,
+                [assignmentId]
+              );
+
+            res.json(result.rows);
+
+          } catch (err) {
+
+            console.error(err);
+
+            res.status(500).json({
+              message:
+                'Error fetching quiz answers'
+            });
+          }
+        }
+      );
+
+
+      // ==============================
+      // GRADE QUIZ ANSWER
+      // ==============================
+      router.patch(
+        '/quiz-answers/:answerId/grade',
+
+        authMiddleware,
+        roleMiddleware(['teacher']),
+
+        async (req, res) => {
+
+          const { answerId } = req.params;
+
+          const {
+            score,
+            teacher_comment
+          } = req.body;
+
+          try {
+
+            await pool.query(
+              `
+                UPDATE student_answers
+                SET
+                  score = $1,
+                  teacher_comment = $2
+                WHERE id = $3
+              `,
+              [
+                score,
+                teacher_comment,
+                answerId
+              ]
+            );
+
+            res.json({
+              message:
+                'Quiz answer graded successfully'
+            });
+
+          } catch (err) {
+
+            console.error(err);
+
+            res.status(500).json({
+              message:
+                'Error grading answer'
+            });
+          }
+        }
+      );
+
+ // ==============================
+ // SINGLE CHOICE ANALYTICS
+ // ==============================
+router.get(
+  '/:id/quiz-analytics',
+
+  authMiddleware,
+  roleMiddleware(['teacher']),
+
+  async (req, res) => {
+
+    const assignmentId = req.params.id;
+
+    try {
+
+      // =========================
+      // GET QUESTIONS
+      // =========================
+      const questionResult =
+        await pool.query(
+          `
+            SELECT
+              id,
+              question_text
+            FROM questions
+            WHERE assignment_id = $1
+            AND question_type = 'single_choice'
+          `,
+          [assignmentId]
+        );
+
+      const questions =
+        questionResult.rows;
+
+      const analytics = [];
+
+      // =========================
+      // ANALYTICS PER QUESTION
+      // =========================
+      for (const q of questions) {
+
+        // TOTAL ANSWERS
+        const totalResult =
+          await pool.query(
+            `
+              SELECT COUNT(*)::int AS total
+              FROM student_answers
+              WHERE question_id = $1
+            `,
+            [q.id]
+          );
+
+        const total =
+          totalResult.rows[0].total;
+
+        // OPTIONS
+        const optionResult =
+          await pool.query(
+            `
+              SELECT
+                qc.id,
+                qc.option_text,
+                qc.is_correct,
+
+                COUNT(sa.id)::int
+                  AS selected_count,
+
+                ARRAY_REMOVE(
+                  ARRAY_AGG(u.name),
+                  NULL
+                ) AS students
+
+              FROM question_choices qc
+
+              LEFT JOIN student_answers sa
+                ON sa.choice_id = qc.id
+
+              LEFT JOIN users u
+                ON u.id = sa.student_id
+
+              WHERE qc.question_id = $1
+
+              GROUP BY
+                qc.id
+
+              ORDER BY qc.id ASC
+            `,
+            [q.id]
+          );
+
+        const options =
+          optionResult.rows.map(opt => ({
+
+            ...opt,
+
+            selection_rate:
+              total > 0
+                ? (
+                    opt.selected_count /
+                    total * 100
+                  ).toFixed(1)
+                : 0
+          }));
+
+        analytics.push({
+          question_id: q.id,
+          question_text: q.question_text,
+          total_answers: total,
+          options
+        });
+      }
+
+      res.json(analytics);
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        message:
+          'Error fetching analytics'
+      });
+    }
+  }
+);
+
+// ==============================
+// QUIZ SUBMISSION STATUS
+// ==============================
+router.get(
+  '/:id/quiz-submission-status',
+
+  authMiddleware,
+  roleMiddleware(['student']),
+
+  async (req, res) => {
+
+    const assignmentId =
+      req.params.id;
+
+    const studentId =
+      req.user.id;
+
+    try {
+
+      const result =
+        await pool.query(
+          `
+            SELECT sa.id
+            FROM student_answers sa
+            JOIN questions q
+              ON q.id = sa.question_id
+            WHERE q.assignment_id = $1
+            AND sa.student_id = $2
+            LIMIT 1
+          `,
+          [
+            assignmentId,
+            studentId
+          ]
+        );
+
+      res.json({
+        submitted:
+          result.rows.length > 0
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        message:
+          'Error fetching status'
+      });
+    }
+  }
+);
 module.exports = router;

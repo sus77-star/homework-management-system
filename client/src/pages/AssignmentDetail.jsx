@@ -21,7 +21,22 @@ const [file, setFile] = useState(null);
 const [submissions, setSubmissions] = useState([]);
 const [requests, setRequests] = useState([]);
 const [questions, setQuestions] = useState([]);
+
+const [quizAnswers, setQuizAnswers] =
+  useState([]);
+
+const [quizAnalytics, setQuizAnalytics] =
+  useState([]);
+
+const [quizGradeData, setQuizGradeData] =
+  useState({});
+
 const [answers, setAnswers] = useState({});
+const [quizSubmitted, setQuizSubmitted] =
+  useState(false);
+
+const [hasSubmittedQuiz, setHasSubmittedQuiz] =
+  useState(false);
 
 const [showQuestionModal, setShowQuestionModal] =
   useState(false);
@@ -50,14 +65,27 @@ const [reason, setReason] = useState('');
 // INIT
 // ==============================
 useEffect(() => {
-  const token = localStorage.getItem('token');
+
+  const token =
+    localStorage.getItem('token');
+
   if (token) {
-    const decoded = jwtDecode(token);
+
+    const decoded =
+      jwtDecode(token);
+
     setRole(decoded.role);
   }
 
-  fetchAll();
 }, []);
+
+useEffect(() => {
+
+  if (role) {
+    fetchAll();
+  }
+
+}, [role]);
 
 // teacher only
 useEffect(() => {
@@ -77,7 +105,18 @@ const fetchAll = async () => {
       fetchSubmissions(),
       fetchMySubmission(),
       fetchResubmitStatus(), //  selalu ambil status
-      fetchQuestions()
+      fetchQuestions(),
+
+      role === 'student'
+        ? fetchQuizSubmissionStatus()
+        : Promise.resolve(),
+
+      role === 'teacher'
+        ? Promise.all([
+            fetchQuizAnswers(),
+            fetchQuizAnalytics()
+          ])
+        : Promise.resolve()
     ]);
   } catch (err) {
     console.error("Fetch error:", err);
@@ -137,6 +176,61 @@ const fetchQuestions = async () => {
   }
 };
 
+const fetchQuizAnswers = async () => {
+
+  try {
+
+    const res = await api.get(
+      `/assignments/${id}/quiz-answers`
+    );
+
+    setQuizAnswers(res.data);
+
+  } catch (err) {
+
+    console.error(err);
+  }
+};
+
+const fetchQuizAnalytics =
+  async () => {
+
+  try {
+
+    const res = await api.get(
+      `/assignments/${id}/quiz-analytics`
+    );
+
+    setQuizAnalytics(res.data);
+
+  } catch (err) {
+
+    console.error(err);
+  }
+};
+
+const fetchQuizSubmissionStatus =
+  async () => {
+
+  try {
+
+    const res = await api.get(
+      `/assignments/${id}/quiz-submission-status`
+    );
+
+    setHasSubmittedQuiz(
+      res.data.submitted
+    );
+
+    if (res.data.submitted) {
+      setQuizSubmitted(true);
+    }
+
+  } catch (err) {
+
+    console.error(err);
+  }
+};
 
 // ==============================
 // SUBMIT / RESUBMIT
@@ -407,6 +501,7 @@ const handleUpdateAssignment = async () => {
           setShowQuestionModal(false);
           fetchQuestions();
 
+
         } catch (err) {
 
           console.error(err);
@@ -432,6 +527,7 @@ const handleUpdateAssignment = async () => {
           );
 
           toast.success(res.data.message);
+          setQuizSubmitted(true);
 
         } catch (err) {
 
@@ -443,6 +539,38 @@ const handleUpdateAssignment = async () => {
           );
         }
       };
+
+const handleGradeQuizAnswer =
+  async (answerId) => {
+
+  try {
+
+    const payload =
+      quizGradeData[answerId];
+
+    const res = await api.patch(
+      `/assignments/quiz-answers/${answerId}/grade`,
+      {
+        score: payload?.score,
+        teacher_comment:
+          payload?.teacher_comment
+      }
+    );
+
+    toast.success(res.data.message);
+
+    fetchQuizAnswers();
+
+  } catch (err) {
+
+    console.error(err);
+
+    toast.error(
+      err.response?.data?.message ||
+      'Error grading answer'
+    );
+  }
+};
 
   if (!assignment) return <Layout>Loading...</Layout>;
 
@@ -774,7 +902,8 @@ const handleUpdateAssignment = async () => {
             {/* ======================
                 STUDENT VIEW
             ====================== */}
-            {role === 'student' ? (
+            {role === 'student' &&
+             !quizSubmitted ? (
 
               <div className="mt-5">
 
@@ -911,10 +1040,27 @@ const handleUpdateAssignment = async () => {
           </div>
         ))}
 
+        {quizSubmitted && (
+          <div className="
+            bg-green-50
+            border border-green-200
+            rounded-xl
+            p-4
+          ">
+            <p className="
+              text-green-700
+              font-medium
+            ">
+              Quiz submitted successfully
+            </p>
+          </div>
+        )}
+
         {/* ======================
             STUDENT SUBMIT
         ====================== */}
-        {role === 'student' && (
+        {role === 'student' &&
+         !quizSubmitted && (
 
           <button
             onClick={handleSubmitQuiz}
@@ -1034,6 +1180,8 @@ const handleUpdateAssignment = async () => {
       <option value="hard">Hard</option>
     </select>
 
+    {assignment.type === 'upload' && (
+    <>
     {/* FORMATS */}
     <input
       type="text"
@@ -1073,6 +1221,8 @@ const handleUpdateAssignment = async () => {
         w-full p-3
       "
     />
+    </>
+    )}
 
     {/* ACTIONS */}
     <div className="flex gap-3">
@@ -1369,13 +1519,17 @@ const handleUpdateAssignment = async () => {
     )}
   </>
 )}
+
+      
       {/* ======================
           SUBMISSIONS TABLE
       ====================== */}
       <div className="bg-white rounded-2xl shadow overflow-hidden">
-        {/* <div className="p-4 border-b font-semibold">
+        <div className="p-4 border-b font-semibold">
           Submissions
-        </div> */}
+        </div>
+      
+      
 
          {/* ======================
     RESUBMIT REQUESTS (TEACHER)
@@ -1685,6 +1839,427 @@ const handleUpdateAssignment = async () => {
           </table>
         )}
       </div>
+
+
+      {/* ======================
+          QUIZ ANSWERS
+      ====================== */}
+      {role === 'teacher' &&
+      assignment.type === 'quiz' && (
+
+        <div className="
+          bg-white rounded-2xl
+          shadow p-6 mb-6
+        ">
+
+          <h2 className="
+            text-xl font-bold
+            text-gray-800 mb-5
+          ">
+            Student Quiz Answers
+          </h2>
+
+          {quizAnswers.length === 0 ? (
+
+            <p className="text-gray-500">
+              No quiz submissions yet
+            </p>
+
+          ) : (
+
+            <div className="space-y-5">
+
+              {quizAnswers.map((a) => (
+
+                <div
+                  key={a.answer_id}
+                  className="
+                    border rounded-xl
+                    p-5
+                  "
+                >
+
+                  {/* STUDENT */}
+                  <div className="
+                    flex items-center
+                    justify-between
+                    mb-3
+                  ">
+
+                    <div>
+
+                      <h3 className="
+                        font-semibold
+                        text-gray-800
+                      ">
+                        {a.student_name}
+                      </h3>
+
+                      <p className="
+                        text-sm text-gray-500
+                      ">
+                        {a.question_type.replace(
+                          '_',
+                          ' '
+                        )}
+                      </p>
+
+                    </div>
+
+                    <span className="
+                      bg-blue-100
+                      text-blue-700
+                      px-3 py-1
+                      rounded-full
+                      text-xs font-medium
+                    ">
+                      {a.points} pts
+                    </span>
+
+                  </div>
+
+                  {/* QUESTION */}
+                  <p className="
+                    font-medium
+                    text-gray-700
+                    mb-4
+                  ">
+                    {a.question_text}
+                  </p>
+
+                  {/* SUBJECTIVE */}
+                  {a.question_type ===
+                    'subjective' && (
+
+                    <div className="
+                      bg-gray-50
+                      border rounded-xl
+                      p-4
+                    ">
+                      {a.answer_text || '-'}
+                    </div>
+                  )}
+
+                  {/* SINGLE CHOICE */}
+                  {a.question_type ===
+                    'single_choice' && (
+
+                    <div className="
+                      space-y-2
+                    ">
+
+                      <div className="
+                        bg-blue-50
+                        border border-blue-200
+                        rounded-xl
+                        p-3
+                      ">
+                        <span className="
+                          text-sm text-gray-500
+                        ">
+                          Student Answer:
+                        </span>
+
+                        <p className="
+                          font-medium text-blue-700
+                        ">
+                          {a.option_text || '-'}
+                        </p>
+
+                      </div>
+
+                      <div className="
+                        bg-green-50
+                        border border-green-200
+                        rounded-xl
+                        p-3
+                      ">
+                        <span className="
+                          text-sm text-gray-500
+                        ">
+                          Correct Answer:
+                        </span>
+
+                        <p className="
+                          font-medium text-green-700
+                        ">
+                          {a.correct_answer || '-'}
+                        </p>
+
+                      </div>
+
+                    </div>
+                  )}
+
+
+{/* ======================
+    GRADING
+====================== */}
+<div className="
+  mt-5
+  border-t pt-5
+">
+
+  {/* SCORE */}
+  <input
+    type="number"
+    placeholder="Score"
+
+    value={
+      quizGradeData[a.answer_id]?.score ??
+      a.score ??
+      ''
+    }
+
+    onChange={(e) =>
+      setQuizGradeData({
+        ...quizGradeData,
+
+        [a.answer_id]: {
+          ...quizGradeData[a.answer_id],
+
+          score: e.target.value
+        }
+      })
+    }
+
+    className="
+      border rounded-xl
+      px-4 py-3
+      w-full mb-3
+    "
+  />
+
+  {/* COMMENT */}
+  <textarea
+    placeholder="Write feedback..."
+
+    value={
+      quizGradeData[a.answer_id]
+        ?.teacher_comment ??
+      a.teacher_comment ??
+      ''
+    }
+
+    onChange={(e) =>
+      setQuizGradeData({
+        ...quizGradeData,
+
+        [a.answer_id]: {
+          ...quizGradeData[a.answer_id],
+
+          teacher_comment:
+            e.target.value
+        }
+      })
+    }
+
+    className="
+      border rounded-xl
+      w-full p-3 mb-3
+    "
+  />
+
+  {/* SAVE */}
+  <button
+    onClick={() =>
+      handleGradeQuizAnswer(
+        a.answer_id
+      )
+    }
+
+    className="
+      bg-green-600
+      hover:bg-green-700
+      text-white
+      px-5 py-2
+      rounded-xl
+      transition
+    "
+  >
+    Save Grade
+  </button>
+
+</div>
+
+                </div>
+              ))}
+
+            </div>
+          )}
+
+        </div>
+      )}
+
+{/* ======================
+    QUIZ ANALYTICS
+====================== */}
+{role === 'teacher' &&
+ assignment.type === 'quiz' && (
+
+  <div className="
+    bg-white rounded-2xl
+    shadow p-6 mb-6
+  ">
+
+    <h2 className="
+      text-xl font-bold
+      text-gray-800 mb-5
+    ">
+      Quiz Analytics
+    </h2>
+
+    {quizAnalytics.length === 0 ? (
+
+      <p className="text-gray-500">
+        No analytics available
+      </p>
+
+    ) : (
+
+      <div className="space-y-6">
+
+        {quizAnalytics.map((q) => (
+
+          <div
+            key={q.question_id}
+            className="
+              border rounded-xl
+              p-5
+            "
+          >
+
+            {/* QUESTION */}
+            <div className="mb-5">
+
+              <h3 className="
+                font-semibold
+                text-gray-800
+              ">
+                {q.question_text}
+              </h3>
+
+              <p className="
+                text-sm text-gray-500 mt-1
+              ">
+                Total Answers:
+                {' '}
+                {q.total_answers}
+              </p>
+
+            </div>
+
+            {/* OPTIONS */}
+            <div className="space-y-4">
+
+              {q.options.map((opt) => (
+
+                <div
+                  key={opt.id}
+                  className="
+                    border rounded-xl
+                    p-4
+                  "
+                >
+
+                  {/* HEADER */}
+                  <div className="
+                    flex items-center
+                    justify-between
+                    mb-3
+                  ">
+
+                    <div>
+
+                      <p className={`
+                        font-medium
+
+                        ${
+                          opt.is_correct
+                            ? 'text-green-700'
+                            : 'text-gray-700'
+                        }
+                      `}>
+                        {opt.option_text}
+
+                        {opt.is_correct &&
+                          ' ✓'}
+                      </p>
+
+                      <p className="
+                        text-sm text-gray-500
+                      ">
+                        Selected:
+                        {' '}
+                        {opt.selected_count}
+                        {' '}
+                        students
+                      </p>
+
+                    </div>
+
+                    <span className="
+                      bg-blue-100
+                      text-blue-700
+                      px-3 py-1
+                      rounded-full
+                      text-sm font-medium
+                    ">
+                      {opt.selection_rate}%
+                    </span>
+
+                  </div>
+
+                  {/* STUDENTS */}
+                  <div className="
+                    flex flex-wrap
+                    gap-2
+                  ">
+
+                    {opt.students?.length ? (
+
+                      opt.students.map(
+                        (student, index) => (
+
+                        <span
+                          key={index}
+                          className="
+                            bg-gray-100
+                            text-gray-700
+                            px-3 py-1
+                            rounded-full
+                            text-xs
+                          "
+                        >
+                          {student}
+                        </span>
+                      ))
+
+                    ) : (
+
+                      <span className="
+                        text-sm text-gray-400
+                      ">
+                        No students selected
+                      </span>
+
+                    )}
+
+                  </div>
+
+                </div>
+              ))}
+
+            </div>
+
+          </div>
+        ))}
+
+      </div>
+    )}
+
+  </div>
+)}
 
       {/* ======================
           QUESTION MODAL

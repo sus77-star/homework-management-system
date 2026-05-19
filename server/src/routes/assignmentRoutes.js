@@ -25,12 +25,16 @@ router.post(
       course_id,
       due_date,
       allowed_formats,
-      max_file_size
+      max_file_size,
+      type
     } = req.body;
 
     try {
 
-     
+      if (type === 'quiz') {
+        req.file = null;
+      }
+
       const formats = allowed_formats
         ? allowed_formats
             .split(',')
@@ -50,6 +54,7 @@ router.post(
           title,
           description,
           difficulty,
+          type,
           course_id,
           due_date,
           file_url,
@@ -57,11 +62,12 @@ router.post(
           max_file_size,
           created_by
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
         [
           title,
           description,
           difficulty,
+          type,
           course_id,
           due_date,
           fileUrl,
@@ -852,6 +858,289 @@ router.get('/:id/resubmit-status', authMiddleware, async (req, res) => {
   }
 });
 
+ // ==============================
+ // GET QUESTIONS
+ // ==============================
+router.get(
+  '/:id/questions',
+
+  authMiddleware,
+
+  async (req, res) => {
+
+    const assignmentId = req.params.id;
+
+    try {
+
+      // =========================
+      // QUESTIONS
+      // =========================
+      const questionResult =
+        await pool.query(
+          `
+            SELECT *
+            FROM questions
+            WHERE assignment_id = $1
+            ORDER BY id ASC
+          `,
+          [assignmentId]
+        );
+
+      const questions =
+        questionResult.rows;
+
+      // =========================
+      // ATTACH OPTIONS
+      // =========================
+      for (const q of questions) {
+
+        if (
+          q.question_type ===
+          'single_choice'
+        ) {
+
+          const optionResult =
+            await pool.query(
+              `
+                SELECT
+                  id,
+                  option_text,
+                  is_correct
+                FROM question_choices
+                WHERE question_id = $1
+                ORDER BY id ASC
+              `,
+              [q.id]
+            );
+
+          q.options =
+            optionResult.rows;
+        }
+      }
+
+      res.json(questions);
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        message:
+          'Error fetching questions'
+      });
+    }
+  }
+);
+
+ // ==============================
+ // CREATE QUESTION
+ // ==============================
+router.post(
+  '/:id/questions',
+
+  authMiddleware,
+  roleMiddleware(['teacher']),
+
+  async (req, res) => {
+
+    const assignmentId = req.params.id;
+
+    const {
+      question_text,
+      question_type,
+      points,
+      options,
+      correct_index
+    } = req.body;
+
+    try {
+
+      // =========================
+      // INSERT QUESTION
+      // =========================
+      const questionResult =
+        await pool.query(
+          `
+            INSERT INTO questions
+            (
+              assignment_id,
+              question_text,
+              question_type,
+              points
+            )
+            VALUES ($1,$2,$3,$4)
+            RETURNING id
+          `,
+          [
+            assignmentId,
+            question_text,
+            question_type,
+            points
+          ]
+        );
+
+      const questionId =
+        questionResult.rows[0].id;
+
+      // =========================
+      // SINGLE CHOICE OPTIONS
+      // =========================
+      if (
+        question_type === 'single_choice'
+      ) {
+
+        for (
+          let i = 0;
+          i < options.length;
+          i++
+        ) {
+
+          if (!options[i]?.trim()) continue;
+
+          await pool.query(
+            `
+              INSERT INTO question_choices
+              (
+                question_id,
+                option_text,
+                is_correct
+              )
+              VALUES ($1,$2,$3)
+            `,
+            [
+              questionId,
+              options[i],
+              i === correct_index
+            ]
+          );
+        }
+      }
+
+      res.json({
+        message:
+          'Question created successfully'
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        message:
+          'Error creating question'
+      });
+    }
+  }
+);
+
+ // ==============================
+ // SUBMIT QUIZ ANSWERS
+ // ==============================
+router.post(
+  '/:id/quiz-submit',
+
+  authMiddleware,
+  roleMiddleware(['student']),
+
+  async (req, res) => {
+
+    const assignmentId = req.params.id;
+
+    const studentId = req.user.id;
+
+    const { answers } = req.body;
+
+    try {
+
+      // =========================
+      // GET QUESTIONS
+      // =========================
+      const questionResult =
+        await pool.query(
+          `
+            SELECT id, question_type
+            FROM questions
+            WHERE assignment_id = $1
+          `,
+          [assignmentId]
+        );
+
+      const questions =
+        questionResult.rows;
+
+      // =========================
+      // SAVE ANSWERS
+      // =========================
+      for (const q of questions) {
+
+        const answer =
+          answers[q.id];
+
+        // SUBJECTIVE
+        if (
+          q.question_type ===
+          'subjective'
+        ) {
+
+          await pool.query(
+            `
+              INSERT INTO student_answers
+              (
+                question_id,
+                student_id,
+                answer_text
+              )
+              VALUES ($1,$2,$3)
+            `,
+            [
+              q.id,
+              studentId,
+              answer || ''
+            ]
+          );
+        }
+
+        // SINGLE CHOICE
+        if (
+          q.question_type ===
+          'single_choice'
+        ) {
+
+          await pool.query(
+            `
+              INSERT INTO student_answers
+              (
+                question_id,
+                student_id,
+                choice_id
+              )
+              VALUES ($1,$2,$3)
+            `,
+            [
+              q.id,
+              studentId,
+              answer || null
+            ]
+          );
+        }
+      }
+
+      res.json({
+        message:
+          'Quiz submitted successfully'
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        message:
+          'Error submitting quiz'
+      });
+    }
+  }
+);
 
 
 module.exports = router;

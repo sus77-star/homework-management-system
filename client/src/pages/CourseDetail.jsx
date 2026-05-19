@@ -33,7 +33,8 @@ export default function CourseDetail() {
     title: '',
     description: '',
     difficulty: 'easy',
-    deadline: ''
+    deadline: '',
+    type: 'upload'
   });
 
   // ==============================
@@ -115,6 +116,8 @@ export default function CourseDetail() {
 
     formData.append('course_id', id);
 
+    formData.append('type', form.type);
+
 
     if (file) {
       formData.append('file', file);
@@ -136,7 +139,8 @@ export default function CourseDetail() {
       title: '',
       description: '',
       difficulty: 'easy',
-      deadline: ''
+      deadline: '',
+      type: 'upload'
     });
 
     setFile(null);
@@ -269,27 +273,60 @@ export default function CourseDetail() {
             <option value="hard">Hard</option>
           </select>
 
-          <input
-            type="text"
-            placeholder="Allowed formats (pdf,docx,zip)"
-            value={formats}
-            onChange={(e) => setFormats(e.target.value)}
+          <select
             className="border p-2 w-full"
-            />
+            value={form.type}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                type: e.target.value
+              })
+            }
+          >
+            <option value="upload">
+              Upload Assignment
+            </option>
 
-            <input
-            type="number"
-            placeholder="Max file size (MB)"
-            value={maxSize}
-            onChange={(e) => setMaxSize(e.target.value)}
-            className="border p-2 w-full"
-            />
+            <option value="quiz">
+              Quiz Assignment
+            </option>
+          </select>
 
-            <input
-            type="file"
-            className="border p-2 w-full"
-            onChange={(e) => setFile(e.target.files[0])}
-          />
+          {form.type === 'upload' && (
+
+            <>
+
+              <input
+                type="text"
+                placeholder="Allowed formats (pdf,docx,zip)"
+                value={formats}
+                onChange={(e) => setFormats(e.target.value)}
+                className="border p-2 w-full"
+              />
+
+              <input
+                type="number"
+                placeholder="Max file size (MB)"
+                value={maxSize}
+                onChange={(e) => setMaxSize(e.target.value)}
+                className="border p-2 w-full"
+              />
+
+              <input
+                type="file"
+                className="border p-2 w-full"
+                onChange={(e) => setFile(e.target.files[0])}
+              />
+
+            </>
+
+          )}
+
+          {form.type === 'quiz' && (
+            <p className="text-sm text-blue-500">
+              Questions can be added after assignment creation.
+            </p>
+          )}
 
           <button
             onClick={handleCreate}

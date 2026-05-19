@@ -20,6 +20,26 @@ const [role, setRole] = useState('');
 const [file, setFile] = useState(null);
 const [submissions, setSubmissions] = useState([]);
 const [requests, setRequests] = useState([]);
+const [questions, setQuestions] = useState([]);
+const [answers, setAnswers] = useState({});
+
+const [showQuestionModal, setShowQuestionModal] =
+  useState(false);
+
+const [questionForm, setQuestionForm] = useState({
+  question_text: '',
+  question_type: 'subjective',
+  points: 10,
+
+  options: [
+    '',
+    '',
+    '',
+    ''
+  ],
+
+  correct_index: 0
+});
 
 const [mySubmission, setMySubmission] = useState(null);
 const [resubmitStatus, setResubmitStatus] = useState(null);
@@ -56,7 +76,8 @@ const fetchAll = async () => {
       fetchAssignment(),
       fetchSubmissions(),
       fetchMySubmission(),
-      fetchResubmitStatus() // 🔥 selalu ambil status
+      fetchResubmitStatus(), //  selalu ambil status
+      fetchQuestions()
     ]);
   } catch (err) {
     console.error("Fetch error:", err);
@@ -98,6 +119,22 @@ const fetchResubmitStatus = async () => {
 const fetchRequests = async () => {
   const res = await api.get(`/assignments/${id}/resubmit-requests`);
   setRequests(res.data);
+};
+
+const fetchQuestions = async () => {
+
+  try {
+
+    const res = await api.get(
+      `/assignments/${id}/questions`
+    );
+
+    setQuestions(res.data);
+
+  } catch (err) {
+
+    console.error(err);
+  }
 };
 
 
@@ -323,6 +360,89 @@ const handleUpdateAssignment = async () => {
   }
 };
 
+      const handleSaveQuestion = async () => {
+
+        try {
+
+          const payload = {
+            question_text:
+              questionForm.question_text,
+
+            question_type:
+              questionForm.question_type,
+
+            points:
+              questionForm.points,
+
+            options:
+              questionForm.options,
+
+            correct_index:
+              questionForm.correct_index
+          };
+
+          const res = await api.post(
+            `/assignments/${id}/questions`,
+            payload
+          );
+
+          toast.success(res.data.message);
+
+          // RESET
+          setQuestionForm({
+            question_text: '',
+            question_type: 'subjective',
+            points: 10,
+
+            options: [
+              '',
+              '',
+              '',
+              ''
+            ],
+
+            correct_index: 0
+          });
+
+          setShowQuestionModal(false);
+          fetchQuestions();
+
+        } catch (err) {
+
+          console.error(err);
+
+          toast.error(
+            err.response?.data?.message ||
+            'Error saving question'
+          );
+        }
+      };
+
+      const handleSubmitQuiz = async () => {
+
+        try {
+
+          const payload = {
+            answers
+          };
+
+          const res = await api.post(
+            `/assignments/${id}/quiz-submit`,
+            payload
+          );
+
+          toast.success(res.data.message);
+
+        } catch (err) {
+
+          console.error(err);
+
+          toast.error(
+            err.response?.data?.message ||
+            'Error submitting quiz'
+          );
+        }
+      };
 
   if (!assignment) return <Layout>Loading...</Layout>;
 
@@ -470,6 +590,8 @@ const handleUpdateAssignment = async () => {
       ).toLocaleString()}
     </span>
 
+  {assignment.type === 'upload' && (
+      <>
     {/* ALLOWED FORMATS */}
     <span className="
       bg-purple-100 text-purple-700
@@ -493,8 +615,68 @@ const handleUpdateAssignment = async () => {
       {' '}
       {assignment.max_file_size || 5} MB
     </span>
+      </>
+  )}
 
   </div>
+
+    {/* ======================
+        QUIZ MANAGEMENT
+    ====================== */}
+    {assignment.type === 'quiz' &&
+    role === 'teacher' && (
+
+      <div className="
+        bg-blue-50
+        border border-blue-200
+        rounded-2xl
+        p-5 mt-6
+      ">
+
+        <div className="
+          flex items-center
+          justify-between
+        ">
+
+          <div>
+
+            <h3 className="
+              text-lg font-semibold
+              text-blue-700
+            ">
+              Quiz Questions
+            </h3>
+
+            <p className="
+              text-sm text-blue-600 mt-1
+            ">
+              Manage quiz questions and choices
+            </p>
+
+          </div>
+
+          <button
+            onClick={() =>
+              setShowQuestionModal(true)
+            }
+
+            className="
+              bg-blue-600
+              hover:bg-blue-700
+              text-white
+              px-4 py-2
+              rounded-xl
+              transition
+            "
+          >
+            Add Question
+          </button>
+
+        </div>
+
+      </div>
+    )}
+
 
   {/* MATERIAL FILE */}
   {assignment.file_url && (
@@ -515,6 +697,246 @@ const handleUpdateAssignment = async () => {
   )}
 
 </div>
+
+
+{/* ======================
+    QUESTIONS LIST
+====================== */}
+{assignment.type === 'quiz' && (
+  <div className="
+    bg-white rounded-2xl
+    shadow p-6 mb-6
+  ">
+
+    <h2 className="
+      text-xl font-bold
+      text-gray-800 mb-5
+    ">
+      Questions
+    </h2>
+
+    {questions.length === 0 ? (
+
+      <p className="text-gray-500">
+        No questions added yet
+      </p>
+
+    ) : (
+
+      <div className="space-y-5">
+
+        {questions.map((q, index) => (
+
+          <div
+            key={q.id}
+            className="
+              border rounded-xl
+              p-5
+            "
+          >
+
+            {/* HEADER */}
+            <div className="
+              flex items-start
+              justify-between
+              gap-4
+            ">
+
+              <div>
+
+                <h3 className="
+                  font-semibold
+                  text-gray-800
+                ">
+                  Question {index + 1}
+                </h3>
+
+                <p className="
+                  text-gray-700 mt-2
+                ">
+                  {q.question_text}
+                </p>
+
+              </div>
+
+              <span className="
+                bg-blue-100
+                text-blue-700
+                px-3 py-1
+                rounded-full
+                text-xs font-medium
+              ">
+                {q.points} pts
+              </span>
+
+            </div>
+
+            {/* ======================
+                STUDENT VIEW
+            ====================== */}
+            {role === 'student' ? (
+
+              <div className="mt-5">
+
+                {/* SUBJECTIVE */}
+                {q.question_type ===
+                  'subjective' && (
+
+                  <textarea
+                    placeholder="Write your answer..."
+
+                    value={
+                      answers[q.id] || ''
+                    }
+
+                    onChange={(e) =>
+                      setAnswers({
+                        ...answers,
+
+                        [q.id]:
+                          e.target.value
+                      })
+                    }
+
+                    className="
+                      border rounded-xl
+                      w-full p-3
+                    "
+                  />
+                )}
+
+                {/* SINGLE CHOICE */}
+                {q.question_type ===
+                  'single_choice' && (
+
+                  <div className="
+                    space-y-3
+                  ">
+
+                    {q.options?.map((opt) => (
+
+                      <label
+                        key={opt.id}
+
+                        className="
+                          flex items-center
+                          gap-3
+                          border rounded-xl
+                          p-3 cursor-pointer
+                        "
+                      >
+
+                        <input
+                          type="radio"
+
+                          checked={
+                            answers[q.id] ===
+                            opt.id
+                          }
+
+                          onChange={() =>
+                            setAnswers({
+                              ...answers,
+
+                              [q.id]:
+                                opt.id
+                            })
+                          }
+                        />
+
+                        <span>
+                          {opt.option_text}
+                        </span>
+
+                      </label>
+                    ))}
+
+                  </div>
+                )}
+
+              </div>
+
+            ) : (
+
+              <>
+                {/* ======================
+                    TEACHER VIEW
+                ====================== */}
+                <p className="
+                  text-sm text-gray-500
+                  mt-3 capitalize
+                ">
+                  {q.question_type.replace(
+                    '_',
+                    ' '
+                  )}
+                </p>
+
+                {/* OPTIONS */}
+                {q.question_type ===
+                  'single_choice' && (
+
+                  <div className="
+                    mt-4 space-y-2
+                  ">
+
+                    {q.options?.map((opt) => (
+
+                      <div
+                        key={opt.id}
+                        className={`
+                          border rounded-lg
+                          px-4 py-2
+                          text-sm
+
+                          ${
+                            opt.is_correct
+                              ? 'bg-green-50 border-green-300 text-green-700'
+                              : 'bg-gray-50'
+                          }
+                        `}
+                      >
+                        {opt.option_text}
+
+                        {opt.is_correct &&
+                          ' ✓'}
+                      </div>
+                    ))}
+
+                  </div>
+                )}
+              </>
+            )}
+
+          </div>
+        ))}
+
+        {/* ======================
+            STUDENT SUBMIT
+        ====================== */}
+        {role === 'student' && (
+
+          <button
+            onClick={handleSubmitQuiz}
+            className="
+              bg-blue-600
+              hover:bg-blue-700
+              text-white
+              px-6 py-3
+              rounded-xl
+              transition
+            "
+          >
+            Submit Quiz
+          </button>
+        )}
+
+      </div>
+    )}
+
+  </div>
+)}
+
 
   {/* ======================
     EDIT FORM
@@ -826,7 +1248,8 @@ const handleUpdateAssignment = async () => {
       {/* ======================
     SUBMIT
 ====================== */}
-{role === 'student' && (
+{role === 'student' &&
+ assignment.type ==='upload' && (
 
   <>
     {/* ======================
@@ -1262,6 +1685,244 @@ const handleUpdateAssignment = async () => {
           </table>
         )}
       </div>
+
+      {/* ======================
+          QUESTION MODAL
+      ====================== */}
+      {showQuestionModal && (
+
+        <div className="
+          fixed inset-0
+          bg-black/40
+          flex items-center
+          justify-center
+          z-50
+        ">
+
+          <div className="
+            bg-white
+            w-full max-w-2xl
+            rounded-2xl
+            p-6
+            shadow-xl
+          ">
+
+            {/* HEADER */}
+            <div className="
+              flex items-center
+              justify-between
+              mb-5
+            ">
+
+              <h2 className="
+                text-2xl font-bold
+                text-gray-800
+              ">
+                Add Question
+              </h2>
+
+              <button
+                onClick={() =>
+                  setShowQuestionModal(false)
+                }
+
+                className="
+                  text-gray-500
+                  hover:text-gray-700
+                "
+              >
+                ✕
+              </button>
+
+            </div>
+
+            {/* QUESTION TEXT */}
+            <textarea
+              placeholder="Question text"
+
+              value={questionForm.question_text}
+
+              onChange={(e) =>
+                setQuestionForm({
+                  ...questionForm,
+                  question_text: e.target.value
+                })
+              }
+
+              className="
+                border rounded-xl
+                w-full p-3
+                mb-4
+              "
+            />
+
+            {/* QUESTION TYPE */}
+            <select
+              value={questionForm.question_type}
+
+              onChange={(e) =>
+                setQuestionForm({
+                  ...questionForm,
+                  question_type: e.target.value
+                })
+              }
+
+              className="
+                border rounded-xl
+                w-full p-3
+                mb-4
+              "
+            >
+              <option value="subjective">
+                Subjective Question
+              </option>
+
+              <option value="single_choice">
+                Single Choice Question
+              </option>
+            </select>
+
+            {/* POINTS */}
+            <input
+              type="number"
+              placeholder="Points"
+
+              value={questionForm.points}
+
+              onChange={(e) =>
+                setQuestionForm({
+                  ...questionForm,
+                  points: e.target.value
+                })
+              }
+
+              className="
+                border rounded-xl
+                w-full p-3
+                mb-4
+              "
+            />
+
+            {/* ======================
+                SINGLE CHOICE OPTIONS
+            ====================== */}
+            {questionForm.question_type ===
+              'single_choice' && (
+
+              <div className="space-y-3">
+
+                {questionForm.options.map(
+                  (opt, index) => (
+
+                  <div
+                    key={index}
+                    className="
+                      flex items-center
+                      gap-3
+                    "
+                  >
+
+                    {/* RADIO */}
+                    <input
+                      type="radio"
+
+                      checked={
+                        questionForm.correct_index ===
+                        index
+                      }
+
+                      onChange={() =>
+                        setQuestionForm({
+                          ...questionForm,
+                          correct_index: index
+                        })
+                      }
+                    />
+
+                    {/* OPTION INPUT */}
+                    <input
+                      type="text"
+
+                      placeholder={`Option ${
+                        index + 1
+                      }`}
+
+                      value={opt}
+
+                      onChange={(e) => {
+
+                        const updated =
+                          [...questionForm.options];
+
+                        updated[index] =
+                          e.target.value;
+
+                        setQuestionForm({
+                          ...questionForm,
+                          options: updated
+                        });
+                      }}
+
+                      className="
+                        border rounded-xl
+                        w-full p-3
+                      "
+                    />
+
+                  </div>
+                ))}
+
+                <p className="
+                  text-sm text-gray-500
+                ">
+                  Select the correct answer
+                </p>
+
+              </div>
+            )}
+
+            {/* ACTIONS */}
+            <div className="
+              flex justify-end
+              gap-3 mt-6
+            ">
+
+              <button
+                onClick={() =>
+                  setShowQuestionModal(false)
+                }
+
+                className="
+                  bg-gray-300
+                  hover:bg-gray-400
+                  px-5 py-2
+                  rounded-xl
+                  transition
+                "
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleSaveQuestion}
+                className="
+                  bg-blue-600
+                  hover:bg-blue-700
+                  text-white
+                  px-5 py-2
+                  rounded-xl
+                  transition
+                "
+              >
+                Save Question
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
     </Layout>
   );
 }

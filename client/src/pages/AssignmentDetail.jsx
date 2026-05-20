@@ -41,6 +41,9 @@ const [hasSubmittedQuiz, setHasSubmittedQuiz] =
 const [showQuestionModal, setShowQuestionModal] =
   useState(false);
 
+const [editingQuestion, setEditingQuestion] =
+  useState(null);
+
 const [questionForm, setQuestionForm] = useState({
   question_text: '',
   question_type: 'subjective',
@@ -99,12 +102,33 @@ useEffect(() => {
 // FETCH ALL (SINGLE SOURCE)
 // ==============================
 const fetchAll = async () => {
+
   try {
+
+    // =========================
+    // FETCH ASSIGNMENT FIRST
+    // =========================
+    const assignmentRes =
+      await api.get(`/assignments/${id}`);
+
+    setAssignment(assignmentRes.data);
+
+    const assignmentData =
+      assignmentRes.data;
+
+    // =========================
+    // FETCH OTHERS
+    // =========================
     await Promise.all([
-      fetchAssignment(),
+
       fetchSubmissions(),
-      fetchMySubmission(),
-      fetchResubmitStatus(), //  selalu ambil status
+
+      assignmentData.type === 'upload'
+        ? fetchMySubmission()
+        : Promise.resolve(),
+
+      fetchResubmitStatus(),
+
       fetchQuestions(),
 
       role === 'student'
@@ -118,8 +142,13 @@ const fetchAll = async () => {
           ])
         : Promise.resolve()
     ]);
+
   } catch (err) {
-    console.error("Fetch error:", err);
+
+    console.error(
+      'Fetch error:',
+      err
+    );
   }
 };
 
@@ -343,7 +372,7 @@ const handleRequestResubmit = async () => {
     alert('Request sent');
     setReason('');
 
-    await fetchAll(); // 🔥 FIX UTAMA (bukan fetch status doang)
+    await fetchAll(); 
 
   } catch (err) {
     console.log("ERROR:", err.response?.data);
@@ -454,6 +483,40 @@ const handleUpdateAssignment = async () => {
   }
 };
 
+const handleEditQuestion = (q) => {
+
+  setEditingQuestion(q);
+
+  setQuestionForm({
+
+    question_text:
+      q.question_text,
+
+    question_type:
+      q.question_type,
+
+    points:
+      q.points,
+
+    options:
+      q.options?.map(
+        o => o.option_text
+      ) || [
+        '',
+        '',
+        '',
+        ''
+      ],
+
+    correct_index:
+      q.options?.findIndex(
+        o => o.is_correct
+      ) || 0
+  });
+
+  setShowQuestionModal(true);
+};
+
       const handleSaveQuestion = async () => {
 
         try {
@@ -475,10 +538,17 @@ const handleUpdateAssignment = async () => {
               questionForm.correct_index
           };
 
-          const res = await api.post(
-            `/assignments/${id}/questions`,
-            payload
-          );
+const res = editingQuestion
+
+  ? await api.patch(
+      `/assignments/questions/${editingQuestion.id}`,
+      payload
+    )
+
+  : await api.post(
+      `/assignments/${id}/questions`,
+      payload
+    );
 
           toast.success(res.data.message);
 
@@ -499,6 +569,7 @@ const handleUpdateAssignment = async () => {
           });
 
           setShowQuestionModal(false);
+          setEditingQuestion(null);
           fetchQuestions();
 
 
@@ -513,7 +584,25 @@ const handleUpdateAssignment = async () => {
         }
       };
 
-      const handleSubmitQuiz = async () => {
+const handleSubmitQuiz = async () => {
+// =========================
+// VALIDATE EMPTY ANSWERS
+// =========================
+for (const q of questions) {
+
+  const answer = answers[q.id];
+
+  if (
+    answer === undefined ||
+    answer === null ||
+    answer === ''
+  ) {
+
+    return toast.error(
+      'Please answer all questions'
+    );
+  }
+}
 
         try {
 
@@ -870,22 +959,42 @@ const handleGradeQuizAnswer =
               gap-4
             ">
 
-              <div>
+            <div className="
+              flex items-center
+              justify-between
+              gap-4
+            ">
 
-                <h3 className="
-                  font-semibold
-                  text-gray-800
-                ">
-                  Question {index + 1}
-                </h3>
+              <h3 className="
+                font-semibold
+                text-gray-800
+                flex-1
+              ">
+                Question {index + 1}
+              </h3>
 
-                <p className="
-                  text-gray-700 mt-2
-                ">
-                  {q.question_text}
-                </p>
+              {role === 'teacher' && (
 
-              </div>
+                <button
+                  onClick={() =>
+                    handleEditQuestion(q)
+                  }
+
+                  className="
+                    text-sm
+                    bg-yellow-500
+                    hover:bg-yellow-600
+                    text-white
+                    px-3 py-1
+                    rounded-lg
+                    transition
+                  "
+                >
+                  Edit
+                </button>
+              )}
+
+            </div>
 
               <span className="
                 bg-blue-100
@@ -1061,20 +1170,28 @@ const handleGradeQuizAnswer =
         ====================== */}
         {role === 'student' &&
          !quizSubmitted && (
+        <button
+          disabled={isExpired}
 
-          <button
-            onClick={handleSubmitQuiz}
-            className="
-              bg-blue-600
-              hover:bg-blue-700
-              text-white
-              px-6 py-3
-              rounded-xl
-              transition
-            "
-          >
-            Submit Quiz
-          </button>
+          onClick={handleSubmitQuiz}
+
+          className={`
+            px-6 py-3
+            rounded-xl
+            text-white
+            transition
+
+            ${
+              isExpired
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700'
+            }
+          `}
+        >
+          {isExpired
+            ? 'Deadline Passed'
+            : 'Submit Quiz'}
+        </button>
         )}
 
       </div>
@@ -1260,18 +1377,6 @@ const handleGradeQuizAnswer =
 
   </div>
 )}
-
-      {/* FILE */}
-      {assignment.file_url && (
-        <a
-          href={`http://localhost:3000${assignment.file_url}`}
-          target="_blank"
-          className="text-blue-500 flex items-center gap-1 mb-6"
-        >
-          <Download size={16} />
-          Download Material
-        </a>
-      )}
 
       {/* ======================
           YOUR SUBMISSION
@@ -1520,7 +1625,8 @@ const handleGradeQuizAnswer =
   </>
 )}
 
-      
+    {assignment.type === 'upload' && (
+      <>
       {/* ======================
           SUBMISSIONS TABLE
       ====================== */}
@@ -1839,8 +1945,8 @@ const handleGradeQuizAnswer =
           </table>
         )}
       </div>
-
-
+    </>
+  )}
       {/* ======================
           QUIZ ANSWERS
       ====================== */}
@@ -1991,7 +2097,8 @@ const handleGradeQuizAnswer =
                     </div>
                   )}
 
-
+{a.question_type === 'subjective' && (
+  <div>
 {/* ======================
     GRADING
 ====================== */}
@@ -2080,7 +2187,9 @@ const handleGradeQuizAnswer =
     Save Grade
   </button>
 
+  </div>
 </div>
+)}
 
                 </div>
               ))}
@@ -2293,7 +2402,9 @@ const handleGradeQuizAnswer =
                 text-2xl font-bold
                 text-gray-800
               ">
-                Add Question
+              {editingQuestion
+                  ? 'Edit Question'
+                  : 'Add Question'}
               </h2>
 
               <button
@@ -2489,7 +2600,9 @@ const handleGradeQuizAnswer =
                   transition
                 "
               >
-                Save Question
+              {editingQuestion
+                ? 'Update Question'
+                : 'Save Question'}
               </button>
 
             </div>

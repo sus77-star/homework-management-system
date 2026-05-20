@@ -1056,7 +1056,7 @@ router.post(
     const existing =
       await pool.query(
         `
-          SELECT id
+          SELECT sa.id
           FROM student_answers sa
           JOIN questions q
             ON q.id = sa.question_id
@@ -1521,6 +1521,154 @@ router.get(
       res.status(500).json({
         message:
           'Error fetching status'
+      });
+    }
+  }
+);
+
+// ==============================
+// UPDATE QUESTION
+// ==============================
+router.patch(
+  '/questions/:questionId',
+
+  authMiddleware,
+  roleMiddleware(['teacher']),
+
+  async (req, res) => {
+
+    const { questionId } =
+      req.params;
+
+    const {
+      question_text,
+      question_type,
+      points,
+      options,
+      correct_index
+    } = req.body;
+
+    try {
+
+      // =========================
+      // UPDATE QUESTION
+      // =========================
+      await pool.query(
+        `
+          UPDATE questions
+          SET
+            question_text = $1,
+            question_type = $2,
+            points = $3
+          WHERE id = $4
+        `,
+        [
+          question_text,
+          question_type,
+          points,
+          questionId
+        ]
+      );
+
+      // =========================
+      // UPDATE OPTIONS
+      // =========================
+      if (
+        question_type ===
+        'single_choice'
+      ) {
+        
+      // =========================
+      // CHECK STUDENT ANSWERS
+      // =========================
+      const answerCheck =
+        await pool.query(
+          `
+            SELECT id
+            FROM student_answers
+            WHERE question_id = $1
+            LIMIT 1
+          `,
+          [questionId]
+        );
+
+      if (answerCheck.rows.length) {
+
+        return res.status(400).json({
+          message:
+            'Cannot edit options after students submitted answers'
+        });
+      }
+        // DELETE OLD OPTIONS
+        await pool.query(
+          `
+            DELETE FROM
+            question_choices
+            WHERE question_id = $1
+          `,
+          [questionId]
+        );
+
+        // INSERT NEW OPTIONS
+        for (
+          let i = 0;
+          i < (options || []).length;
+          i++
+        ) {
+
+          if (!options[i]?.trim()) continue;
+
+          await pool.query(
+            `
+              INSERT INTO
+              question_choices
+              (
+                question_id,
+                option_text,
+                is_correct
+              )
+              VALUES ($1,$2,$3)
+            `,
+            [
+              questionId,
+              options[i],
+              i === Number(correct_index)
+            ]
+          );
+        } {
+
+          await pool.query(
+            `
+              INSERT INTO
+              question_choices
+              (
+                question_id,
+                option_text,
+                is_correct
+              )
+              VALUES ($1,$2,$3)
+            `,
+            [
+              questionId,
+              options[i],
+              i === correct_index
+            ]
+          );
+        }
+      }
+
+      res.json({
+        message:
+          'Question updated successfully'
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        message:
+          'Error updating question'
       });
     }
   }

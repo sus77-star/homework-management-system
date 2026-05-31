@@ -387,7 +387,7 @@ router.post(
       if (existing.rows.length) {
         const submissionId = existing.rows[0].id;
 
-        // ❌ LOCK kalau sudah graded
+        // LOCK kalau sudah graded
 if (existing.rows[0].status === 'graded') {
   return res.status(403).json({
     message: 'Submission finalized after grading'
@@ -953,6 +953,30 @@ router.post(
       correct_index
     } = req.body;
 
+// =========================
+// CHECK EXISTING SUBMISSION
+// =========================
+const submittedCheck =
+  await pool.query(
+    `
+      SELECT sa.id
+      FROM student_answers sa
+      JOIN questions q
+        ON q.id = sa.question_id
+      WHERE q.assignment_id = $1
+      LIMIT 1
+    `,
+    [assignmentId]
+  );
+
+if (submittedCheck.rows.length) {
+
+  return res.status(403).json({
+    message:
+      'Cannot add questions after students submitted quiz'
+  });
+}
+
     try {
 
       // =========================
@@ -993,7 +1017,7 @@ router.post(
           let i = 0;
           i < options.length;
           i++
-        ) {
+        )   {
 
           if (!options[i]?.trim()) continue;
 
@@ -1314,6 +1338,39 @@ router.post(
           } = req.body;
 
           try {
+            // =========================
+            // GET MAX QUESTION POINTS
+            // =========================
+            const pointResult =
+              await pool.query(
+                `
+                  SELECT q.points
+                  FROM student_answers sa
+                  JOIN questions q
+                    ON q.id = sa.question_id
+                  WHERE sa.id = $1
+                `,
+                [answerId]
+              );
+
+            const maxPoints =
+              Number(
+                pointResult.rows[0]?.points || 0
+              );
+
+            // =========================
+            // VALIDATE SCORE
+            // =========================
+            if (
+              Number(score) < 0 ||
+              Number(score) > maxPoints
+            ) {
+
+              return res.status(400).json({
+                message:
+                  `Score must be between 0 and ${maxPoints}`
+              });
+            }
 
             await pool.query(
               `
@@ -1368,12 +1425,12 @@ router.get(
       const questionResult =
         await pool.query(
           `
-            SELECT
-              id,
-              question_text
-            FROM questions
-            WHERE assignment_id = $1
-            AND question_type = 'single_choice'
+          SELECT
+            id,
+            question_text,
+            question_type
+          FROM questions
+          WHERE assignment_id = $1
           `,
           [assignmentId]
         );
@@ -1388,13 +1445,14 @@ router.get(
       // =========================
       for (const q of questions) {
 
-        // TOTAL ANSWERS
+      if (q.question_type === 'single_choice') {
+
         const totalResult =
           await pool.query(
             `
-              SELECT COUNT(*)::int AS total
-              FROM student_answers
-              WHERE question_id = $1
+            SELECT COUNT(*)::int AS total
+            FROM student_answers
+            WHERE question_id = $1
             `,
             [q.id]
           );
@@ -1402,46 +1460,41 @@ router.get(
         const total =
           totalResult.rows[0].total;
 
-        // OPTIONS
         const optionResult =
           await pool.query(
             `
-              SELECT
-                qc.id,
-                qc.option_text,
-                qc.is_correct,
+            SELECT
+              qc.id,
+              qc.option_text,
+              qc.is_correct,
 
-                COUNT(sa.id)::int
-                  AS selected_count,
+              COUNT(sa.id)::int
+                AS selected_count,
 
-                ARRAY_REMOVE(
-                  ARRAY_AGG(u.name),
-                  NULL
-                ) AS students
+              ARRAY_REMOVE(
+                ARRAY_AGG(u.name),
+                NULL
+              ) AS students
 
-              FROM question_choices qc
+            FROM question_choices qc
 
-              LEFT JOIN student_answers sa
-                ON sa.choice_id = qc.id
+            LEFT JOIN student_answers sa
+              ON sa.choice_id = qc.id
 
-              LEFT JOIN users u
-                ON u.id = sa.student_id
+            LEFT JOIN users u
+              ON u.id = sa.student_id
 
-              WHERE qc.question_id = $1
+            WHERE qc.question_id = $1
 
-              GROUP BY
-                qc.id
-
-              ORDER BY qc.id ASC
+            GROUP BY qc.id
+            ORDER BY qc.id ASC
             `,
             [q.id]
           );
 
         const options =
           optionResult.rows.map(opt => ({
-
             ...opt,
-
             selection_rate:
               total > 0
                 ? (
@@ -1454,9 +1507,38 @@ router.get(
         analytics.push({
           question_id: q.id,
           question_text: q.question_text,
+          question_type: 'single_choice',
           total_answers: total,
           options
         });
+
+        } else {
+
+          const answerResult =
+            await pool.query(
+              `
+              SELECT
+                COUNT(*)::int AS total_answers,
+                ROUND(AVG(score),2) AS average_score
+              FROM student_answers
+              WHERE question_id = $1
+              `,
+              [q.id]
+            );
+
+          analytics.push({
+            question_id: q.id,
+            question_text: q.question_text,
+            question_type: 'subjective',
+
+            total_answers:
+              answerResult.rows[0].total_answers,
+
+            average_score:
+              answerResult.rows[0].average_score || 0
+          });
+
+        }
       }
 
       res.json(analytics);
@@ -1548,121 +1630,126 @@ router.patch(
       correct_index
     } = req.body;
 
-    try {
+try {
 
-      // =========================
-      // UPDATE QUESTION
-      // =========================
+  // =========================
+  // CHECK STUDENT ANSWERS
+  // =========================
+  const answerCheck =
+    await pool.query(
+      `
+        SELECT id
+        FROM student_answers
+        WHERE question_id = $1
+        LIMIT 1
+      `,
+      [questionId]
+    );
+
+  // =========================
+  // LOCK STRUCTURAL EDIT
+  // =========================
+  if (answerCheck.rows.length) {
+
+    const oldQuestion =
       await pool.query(
         `
-          UPDATE questions
-          SET
-            question_text = $1,
-            question_type = $2,
-            points = $3
-          WHERE id = $4
+          SELECT question_type
+          FROM questions
+          WHERE id = $1
         `,
-        [
-          question_text,
-          question_type,
-          points,
-          questionId
-        ]
+        [questionId]
       );
 
-      // =========================
-      // UPDATE OPTIONS
-      // =========================
-      if (
-        question_type ===
-        'single_choice'
-      ) {
-        
-      // =========================
-      // CHECK STUDENT ANSWERS
-      // =========================
-      const answerCheck =
-        await pool.query(
-          `
-            SELECT id
-            FROM student_answers
-            WHERE question_id = $1
-            LIMIT 1
-          `,
-          [questionId]
-        );
+    const oldType =
+      oldQuestion.rows[0]
+        ?.question_type;
 
-      if (answerCheck.rows.length) {
+    const changingType =
+      oldType !== question_type;
 
-        return res.status(400).json({
-          message:
-            'Cannot edit options after students submitted answers'
-        });
-      }
-        // DELETE OLD OPTIONS
-        await pool.query(
-          `
-            DELETE FROM
-            question_choices
-            WHERE question_id = $1
-          `,
-          [questionId]
-        );
+    if (
+      changingType ||
+      question_type === 'single_choice'
+    ) {
 
-        // INSERT NEW OPTIONS
-        for (
-          let i = 0;
-          i < (options || []).length;
-          i++
-        ) {
-
-          if (!options[i]?.trim()) continue;
-
-          await pool.query(
-            `
-              INSERT INTO
-              question_choices
-              (
-                question_id,
-                option_text,
-                is_correct
-              )
-              VALUES ($1,$2,$3)
-            `,
-            [
-              questionId,
-              options[i],
-              i === Number(correct_index)
-            ]
-          );
-        } {
-
-          await pool.query(
-            `
-              INSERT INTO
-              question_choices
-              (
-                question_id,
-                option_text,
-                is_correct
-              )
-              VALUES ($1,$2,$3)
-            `,
-            [
-              questionId,
-              options[i],
-              i === correct_index
-            ]
-          );
-        }
-      }
-
-      res.json({
+      return res.status(403).json({
         message:
-          'Question updated successfully'
+          'Question structure cannot be modified after student submission'
       });
+    }
+  }
 
-    } catch (err) {
+  // =========================
+  // UPDATE QUESTION
+  // =========================
+  await pool.query(
+    `
+      UPDATE questions
+      SET
+        question_text = $1,
+        question_type = $2,
+        points = $3
+      WHERE id = $4
+    `,
+    [
+      question_text,
+      question_type,
+      points,
+      questionId
+    ]
+  );
+
+  // =========================
+  // UPDATE OPTIONS
+  // =========================
+  if (
+    question_type ===
+    'single_choice'
+  ) {
+
+    await pool.query(
+      `
+        DELETE FROM question_choices
+        WHERE question_id = $1
+      `,
+      [questionId]
+    );
+
+    for (
+      let i = 0;
+      i < (options || []).length;
+      i++
+    ) {
+
+      if (!options[i]?.trim())
+        continue;
+
+      await pool.query(
+        `
+          INSERT INTO question_choices
+          (
+            question_id,
+            option_text,
+            is_correct
+          )
+          VALUES ($1,$2,$3)
+        `,
+        [
+          questionId,
+          options[i],
+          i === Number(correct_index)
+        ]
+      );
+    }
+  }
+
+  res.json({
+    message:
+      'Question updated successfully'
+  });
+
+} catch (err) {
 
       console.error(err);
 
@@ -1670,6 +1757,145 @@ router.patch(
         message:
           'Error updating question'
       });
+    }
+  }
+);
+
+router.get(
+  '/:id/quiz-scores',
+  authMiddleware,
+  roleMiddleware(['teacher']),
+
+  async (req, res) => {
+
+    const assignmentId = req.params.id;
+
+    try {
+
+      const result = await pool.query(
+        `
+          SELECT
+            u.id,
+            u.name,
+
+            COALESCE(
+              SUM(sa.score),
+              0
+            ) AS total_score
+
+          FROM student_answers sa
+
+          JOIN users u
+            ON u.id = sa.student_id
+
+          JOIN questions q
+            ON q.id = sa.question_id
+
+          WHERE q.assignment_id = $1
+
+          GROUP BY
+            u.id,
+            u.name
+
+          ORDER BY
+            total_score DESC
+        `,
+        [assignmentId]
+      );
+
+      res.json(result.rows);
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        message: 'Error fetching scores'
+      });
+    }
+  }
+);
+
+router.get(
+  '/:id/quiz-review',
+  authMiddleware,
+  roleMiddleware(['student']),
+  async (req, res) => {
+
+    const assignmentId = req.params.id;
+    const studentId = req.user.id;
+
+    try {
+
+      const totalResult = await pool.query(
+        `
+        SELECT
+          COALESCE(SUM(sa.score),0) AS total_score
+        FROM student_answers sa
+        JOIN questions q
+          ON q.id = sa.question_id
+        WHERE q.assignment_id = $1
+        AND sa.student_id = $2
+        `,
+        [assignmentId, studentId]
+      );
+
+      const totalScore =
+        Number(totalResult.rows[0].total_score);
+
+      const result = await pool.query(
+        `
+        SELECT
+
+          q.id,
+          q.question_text,
+          q.question_type,
+          q.points,
+
+          sa.answer_text,
+          sa.score,
+          sa.teacher_comment,
+
+          student_choice.option_text
+            AS student_answer,
+
+          correct_choice.option_text
+            AS correct_answer
+
+        FROM questions q
+
+        LEFT JOIN student_answers sa
+          ON sa.question_id = q.id
+          AND sa.student_id = $2
+
+        LEFT JOIN question_choices student_choice
+          ON student_choice.id = sa.choice_id
+
+        LEFT JOIN question_choices correct_choice
+          ON correct_choice.question_id = q.id
+          AND correct_choice.is_correct = true
+
+        WHERE q.assignment_id = $1
+
+        ORDER BY q.id
+        `,
+        [assignmentId, studentId]
+      );
+
+      res.json({
+        total_score: totalScore,
+        max_score: 100,
+        questions: result.rows
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        message: 'Error fetching review'
+      });
+
     }
   }
 );

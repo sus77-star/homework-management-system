@@ -35,6 +35,9 @@ const [answers, setAnswers] = useState({});
 const [quizSubmitted, setQuizSubmitted] =
   useState(false);
 
+const [quizLocked, setQuizLocked] =
+  useState(false);
+
 const [hasSubmittedQuiz, setHasSubmittedQuiz] =
   useState(false);
 
@@ -43,6 +46,28 @@ const [showQuestionModal, setShowQuestionModal] =
 
 const [editingQuestion, setEditingQuestion] =
   useState(null);
+
+const [quizReview, setQuizReview] =
+  useState(null);
+
+const fetchQuizReview =
+  async () => {
+
+    try {
+
+      const res =
+        await api.get(
+          `/assignments/${id}/quiz-review`
+        );
+
+      setQuizReview(res.data);
+
+    } catch (err) {
+
+      console.error(err);
+
+    }
+  };
 
 const [questionForm, setQuestionForm] = useState({
   question_text: '',
@@ -63,6 +88,14 @@ const [mySubmission, setMySubmission] = useState(null);
 const [resubmitStatus, setResubmitStatus] = useState(null);
 const [reason, setReason] = useState('');
 
+const waitingForGrade =
+  quizReview &&
+  quizReview.questions &&
+  quizReview.questions.some(
+    q =>
+      q.question_type === 'subjective' &&
+      q.score == null
+  );
 
 // ==============================
 // INIT
@@ -97,6 +130,18 @@ useEffect(() => {
   }
 }, [role]);
 
+const [quizScores, setQuizScores] =
+  useState([]);
+
+const fetchQuizScores = async () => {
+
+  const res =
+    await api.get(
+      `/assignments/${id}/quiz-scores`
+    );
+
+  setQuizScores(res.data);
+};
 
 // ==============================
 // FETCH ALL (SINGLE SOURCE)
@@ -132,13 +177,17 @@ const fetchAll = async () => {
       fetchQuestions(),
 
       role === 'student'
-        ? fetchQuizSubmissionStatus()
+        ? Promise.all([
+            fetchQuizSubmissionStatus(),
+            fetchQuizReview()
+          ])
         : Promise.resolve(),
 
       role === 'teacher'
         ? Promise.all([
             fetchQuizAnswers(),
-            fetchQuizAnalytics()
+            fetchQuizAnalytics(),
+            fetchQuizScores()
           ])
         : Promise.resolve()
     ]);
@@ -214,6 +263,7 @@ const fetchQuizAnswers = async () => {
     );
 
     setQuizAnswers(res.data);
+    setQuizLocked(res.data.length > 0);
 
   } catch (err) {
 
@@ -409,6 +459,16 @@ const handleUpdateRequest = async (requestId, status) => {
 
     const payload = gradeData[submissionId];
 
+    if (
+      payload.score < 0 ||
+      payload.score > 100
+    ) {
+
+      return toast.error(
+        'Score must be between 0 and 100'
+      );
+    }
+
     const res = await api.patch(
       `/assignments/submissions/${submissionId}/grade`,
       {
@@ -520,6 +580,44 @@ const handleEditQuestion = (q) => {
       const handleSaveQuestion = async () => {
 
         try {
+        // =========================
+        // TOTAL POINT VALIDATION
+        // =========================
+        if (
+          Number(questionForm.points) <= 0
+        ) {
+          return toast.error(
+            'Points must be greater than 0'
+          );
+        }
+        
+        const currentTotal =
+          questions.reduce(
+            (sum, q) => {
+
+              // exclude edited question
+              if (
+                editingQuestion &&
+                q.id === editingQuestion.id
+              ) {
+                return sum;
+              }
+
+              return sum + Number(q.points);
+            },
+            0
+          );
+
+        const newTotal =
+          currentTotal +
+          Number(questionForm.points);
+
+        if (newTotal > 100) {
+
+          return toast.error(
+            `Total quiz points cannot exceed 100 (Current: ${newTotal})`
+          );
+        }
 
           const payload = {
             question_text:
@@ -604,6 +702,23 @@ for (const q of questions) {
   }
 }
 
+        // =========================
+        // TOTAL POINT CHECK
+        // =========================
+        const totalPoints =
+          questions.reduce(
+            (sum, q) =>
+              sum + Number(q.points),
+            0
+          );
+
+        if (totalPoints !== 100) {
+
+          return toast.error(
+            'Quiz total points must equal exactly 100'
+          );
+        }
+
         try {
 
           const payload = {
@@ -616,6 +731,9 @@ for (const q of questions) {
           );
 
           toast.success(res.data.message);
+
+          await fetchAll();
+
           setQuizSubmitted(true);
 
         } catch (err) {
@@ -629,37 +747,54 @@ for (const q of questions) {
         }
       };
 
-const handleGradeQuizAnswer =
-  async (answerId) => {
+      const handleGradeQuizAnswer =
+        async (answerId) => {
 
-  try {
+        try {
 
-    const payload =
-      quizGradeData[answerId];
+          const payload =
+            quizGradeData[answerId];
+          
+            const answer =
+            quizAnswers.find(
+              q => q.answer_id === answerId
+            );
 
-    const res = await api.patch(
-      `/assignments/quiz-answers/${answerId}/grade`,
-      {
-        score: payload?.score,
-        teacher_comment:
-          payload?.teacher_comment
-      }
-    );
+          const maxPoints =
+            answer?.points || 0;
 
-    toast.success(res.data.message);
+          if (
+            Number(payload.score) < 0 ||
+            Number(payload.score) > maxPoints
+          ) {
 
-    fetchQuizAnswers();
+            return toast.error(
+              `Score must be between 0 and ${maxPoints}`
+            );
+          }
+          const res = await api.patch(
+            `/assignments/quiz-answers/${answerId}/grade`,
+            {
+              score: payload?.score,
+              teacher_comment:
+                payload?.teacher_comment
+            }
+          );
 
-  } catch (err) {
+          toast.success(res.data.message);
 
-    console.error(err);
+          fetchQuizAnswers();
 
-    toast.error(
-      err.response?.data?.message ||
-      'Error grading answer'
-    );
-  }
-};
+        } catch (err) {
+
+          console.error(err);
+
+          toast.error(
+            err.response?.data?.message ||
+            'Error grading answer'
+          );
+        }
+      };
 
   if (!assignment) return <Layout>Loading...</Layout>;
 
@@ -873,18 +1008,26 @@ const handleGradeQuizAnswer =
           </div>
 
           <button
+            disabled={quizLocked}
             onClick={() =>
               setShowQuestionModal(true)
             }
 
-            className="
+            className={`
               bg-blue-600
               hover:bg-blue-700
               text-white
               px-4 py-2
               rounded-xl
               transition
-            "
+
+              ${quizLocked 
+                ? 'bg-gray-400 cursor-not-allowed hover:bg-gray-400'
+                : 'bg-blue-600 hover:bg-blue-700'
+                }
+
+            `}
+            
           >
             Add Question
           </button>
@@ -914,292 +1057,6 @@ const handleGradeQuizAnswer =
   )}
 
 </div>
-
-
-{/* ======================
-    QUESTIONS LIST
-====================== */}
-{assignment.type === 'quiz' && (
-  <div className="
-    bg-white rounded-2xl
-    shadow p-6 mb-6
-  ">
-
-    <h2 className="
-      text-xl font-bold
-      text-gray-800 mb-5
-    ">
-      Questions
-    </h2>
-
-    {questions.length === 0 ? (
-
-      <p className="text-gray-500">
-        No questions added yet
-      </p>
-
-    ) : (
-
-      <div className="space-y-5">
-
-        {questions.map((q, index) => (
-
-          <div
-            key={q.id}
-            className="
-              border rounded-xl
-              p-5
-            "
-          >
-
-            {/* HEADER */}
-            <div className="
-              flex items-start
-              justify-between
-              gap-4
-            ">
-
-            <div className="
-              flex items-center
-              justify-between
-              gap-4
-            ">
-
-              <h3 className="
-                font-semibold
-                text-gray-800
-                flex-1
-              ">
-                Question {index + 1}
-              </h3>
-
-              {role === 'teacher' && (
-
-                <button
-                  onClick={() =>
-                    handleEditQuestion(q)
-                  }
-
-                  className="
-                    text-sm
-                    bg-yellow-500
-                    hover:bg-yellow-600
-                    text-white
-                    px-3 py-1
-                    rounded-lg
-                    transition
-                  "
-                >
-                  Edit
-                </button>
-              )}
-
-            </div>
-
-              <span className="
-                bg-blue-100
-                text-blue-700
-                px-3 py-1
-                rounded-full
-                text-xs font-medium
-              ">
-                {q.points} pts
-              </span>
-
-            </div>
-
-            {/* ======================
-                STUDENT VIEW
-            ====================== */}
-            {role === 'student' &&
-             !quizSubmitted ? (
-
-              <div className="mt-5">
-
-                {/* SUBJECTIVE */}
-                {q.question_type ===
-                  'subjective' && (
-
-                  <textarea
-                    placeholder="Write your answer..."
-
-                    value={
-                      answers[q.id] || ''
-                    }
-
-                    onChange={(e) =>
-                      setAnswers({
-                        ...answers,
-
-                        [q.id]:
-                          e.target.value
-                      })
-                    }
-
-                    className="
-                      border rounded-xl
-                      w-full p-3
-                    "
-                  />
-                )}
-
-                {/* SINGLE CHOICE */}
-                {q.question_type ===
-                  'single_choice' && (
-
-                  <div className="
-                    space-y-3
-                  ">
-
-                    {q.options?.map((opt) => (
-
-                      <label
-                        key={opt.id}
-
-                        className="
-                          flex items-center
-                          gap-3
-                          border rounded-xl
-                          p-3 cursor-pointer
-                        "
-                      >
-
-                        <input
-                          type="radio"
-
-                          checked={
-                            answers[q.id] ===
-                            opt.id
-                          }
-
-                          onChange={() =>
-                            setAnswers({
-                              ...answers,
-
-                              [q.id]:
-                                opt.id
-                            })
-                          }
-                        />
-
-                        <span>
-                          {opt.option_text}
-                        </span>
-
-                      </label>
-                    ))}
-
-                  </div>
-                )}
-
-              </div>
-
-            ) : (
-
-              <>
-                {/* ======================
-                    TEACHER VIEW
-                ====================== */}
-                <p className="
-                  text-sm text-gray-500
-                  mt-3 capitalize
-                ">
-                  {q.question_type.replace(
-                    '_',
-                    ' '
-                  )}
-                </p>
-
-                {/* OPTIONS */}
-                {q.question_type ===
-                  'single_choice' && (
-
-                  <div className="
-                    mt-4 space-y-2
-                  ">
-
-                    {q.options?.map((opt) => (
-
-                      <div
-                        key={opt.id}
-                        className={`
-                          border rounded-lg
-                          px-4 py-2
-                          text-sm
-
-                          ${
-                            opt.is_correct
-                              ? 'bg-green-50 border-green-300 text-green-700'
-                              : 'bg-gray-50'
-                          }
-                        `}
-                      >
-                        {opt.option_text}
-
-                        {opt.is_correct &&
-                          ' ✓'}
-                      </div>
-                    ))}
-
-                  </div>
-                )}
-              </>
-            )}
-
-          </div>
-        ))}
-
-        {quizSubmitted && (
-          <div className="
-            bg-green-50
-            border border-green-200
-            rounded-xl
-            p-4
-          ">
-            <p className="
-              text-green-700
-              font-medium
-            ">
-              Quiz submitted successfully
-            </p>
-          </div>
-        )}
-
-        {/* ======================
-            STUDENT SUBMIT
-        ====================== */}
-        {role === 'student' &&
-         !quizSubmitted && (
-        <button
-          disabled={isExpired}
-
-          onClick={handleSubmitQuiz}
-
-          className={`
-            px-6 py-3
-            rounded-xl
-            text-white
-            transition
-
-            ${
-              isExpired
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700'
-            }
-          `}
-        >
-          {isExpired
-            ? 'Deadline Passed'
-            : 'Submit Quiz'}
-        </button>
-        )}
-
-      </div>
-    )}
-
-  </div>
-)}
-
 
   {/* ======================
     EDIT FORM
@@ -1235,6 +1092,7 @@ const handleGradeQuizAnswer =
       className="
         border rounded-xl
         w-full p-3
+        bg-gray-50 focus:ring-2 focus:ring-blue-500
       "
     />
 
@@ -1254,6 +1112,7 @@ const handleGradeQuizAnswer =
       className="
         border rounded-xl
         w-full p-3
+        bg-gray-50 focus:ring-2 focus:ring-blue-500
       "
     />
 
@@ -1273,6 +1132,7 @@ const handleGradeQuizAnswer =
       className="
         border rounded-xl
         w-full p-3
+        bg-gray-50 focus:ring-2 focus:ring-blue-500
       "
     />
 
@@ -1290,6 +1150,7 @@ const handleGradeQuizAnswer =
       className="
         border rounded-xl
         w-full p-3
+        bg-gray-50 focus:ring-2 focus:ring-blue-500
       "
     >
       <option value="easy">Easy</option>
@@ -1377,6 +1238,374 @@ const handleGradeQuizAnswer =
 
   </div>
 )}
+
+
+{/* ======================
+    QUESTIONS LIST
+====================== */}
+{assignment.type === 'quiz' && (
+  <div className="
+    bg-white rounded-2xl
+    shadow p-6 mb-6
+  ">
+
+    <h2 className="
+      text-xl font-bold
+      text-gray-800 mb-5
+    ">
+      Questions
+    </h2>
+
+    {questions.length === 0 ? (
+
+      <p className="text-gray-500">
+        No questions added yet
+      </p>
+
+    ) : (
+
+      <div className="space-y-5">
+
+        {questions.map((q, index) => (
+
+          <div
+            key={q.id}
+            className="
+              border rounded-xl
+              p-5
+            "
+          >
+
+            {/* HEADER */}
+            <div className="
+              flex items-start
+              justify-between
+              gap-4
+            ">
+
+            <div className="
+              flex items-center
+              justify-between
+              gap-4
+            ">
+
+              <h3 className="
+                font-semibold
+                text-gray-800
+                flex-1
+              ">
+                Question {index + 1}
+              </h3>
+              
+              {role === 'teacher' && (
+
+                <button
+                  onClick={() =>
+                    handleEditQuestion(q)
+                  }
+
+                  className="
+                    text-sm
+                    bg-yellow-500
+                    hover:bg-yellow-600
+                    text-white
+                    px-3 py-1
+                    rounded-lg
+                    transition
+                  "
+                >
+                  Edit
+                </button>
+              )}
+
+            </div>
+
+              <span className="
+                bg-blue-100
+                text-blue-700
+                px-3 py-1
+                rounded-full
+                text-xs font-medium
+              ">
+                {q.points} pts
+              </span>
+
+            </div>
+
+{/* ======================
+    STUDENT QUIZ FORM
+====================== */}
+
+{role === 'student' && !quizSubmitted && (
+
+  <div className="mt-5">
+
+    <p className="font-medium text-gray-700 mb-4">
+      {q.question_text}
+    </p>
+
+    {q.question_type === 'subjective' && (
+      <textarea
+        placeholder="Write your answer..."
+        value={answers[q.id] || ''}
+        onChange={(e) =>
+          setAnswers({
+            ...answers,
+            [q.id]: e.target.value
+          })
+        }
+        className="
+          border rounded-xl
+          w-full p-3
+          bg-gray-50 focus:ring-2 focus:ring-blue-500
+        "
+      />
+    )}
+
+    {q.question_type === 'single_choice' && (
+      <div className="space-y-3">
+
+        {q.options?.map((opt) => (
+
+          <label
+            key={opt.id}
+            className="
+              flex items-center
+              gap-3
+              border rounded-xl
+              p-3 cursor-pointer
+            "
+          >
+
+            <input
+              type="radio"
+              checked={answers[q.id] === opt.id}
+              onChange={() =>
+                setAnswers({
+                  ...answers,
+                  [q.id]: opt.id
+                })
+              }
+            />
+
+            <span>
+              {opt.option_text}
+            </span>
+
+          </label>
+
+        ))}
+
+      </div>
+    )}
+
+  </div>
+
+)}
+
+{/* ======================
+    TEACHER VIEW
+====================== */}
+{role === 'teacher' && (
+
+  <>
+
+    {/* QUESTION TEXT */}
+    <p className="
+      font-medium
+      text-gray-700
+      mt-4 mb-4
+    ">
+      {q.question_text}
+    </p>
+
+    {/* TYPE */}
+    <p className="
+      text-sm text-gray-500
+      capitalize
+    ">
+      {q.question_type.replace('_',' ')}
+    </p>
+
+    {/* OPTIONS */}
+    {q.question_type === 'single_choice' && (
+
+      <div className="
+        mt-4 space-y-2
+      ">
+
+        {q.options?.map((opt) => (
+
+          <div
+            key={opt.id}
+            className={`
+              border rounded-lg
+              px-4 py-2
+              text-sm
+              ${
+                opt.is_correct
+                  ? 'bg-green-50 border-green-300 text-green-700'
+                  : 'bg-gray-50'
+              }
+            `}
+          >
+            {opt.option_text}
+            {opt.is_correct && ' ✓'}
+          </div>
+
+        ))}
+
+      </div>
+
+    )}
+
+  </>
+
+)}
+           
+
+          </div>
+        ))}
+
+        {role==='student' && quizSubmitted && quizReview && (
+
+          <div className="
+            bg-white
+            rounded-2xl
+            shadow
+            p-6
+          ">
+
+            <div className="mb-6">
+
+              <h2 className="
+                text-2xl
+                font-bold
+              ">
+                Quiz Result
+              </h2>
+
+              <p className="
+                text-3xl
+                font-bold
+                text-blue-600
+                mt-2
+              ">
+                {quizReview.total_score}/100
+              </p>
+
+            </div>
+
+            <div className="space-y-5">
+
+              {quizReview.questions.map((q,index) => (
+
+                <div
+                  key={q.id}
+                  className="
+                    border
+                    rounded-xl
+                    p-5
+                  "
+                >
+
+                  <h3 className="font-semibold">
+                    Question {index + 1}
+                  </h3>
+
+                  <p className="mt-2">
+                    {q.question_text}
+                  </p>
+
+                  <div className="mt-4">
+
+                    <p>
+                      Your Answer:
+                      {' '}
+                      {q.student_answer ||
+                      q.answer_text ||
+                      '-'}
+                    </p>
+
+                    {q.question_type ===
+                    'single_choice' && (
+
+                      <p>
+                        Correct Answer:
+                        {' '}
+                        {q.correct_answer}
+                      </p>
+                    )}
+
+                    <p>
+                      Score:
+                      {' '}
+                      {q.score == null
+                        ? 'Not graded yet'
+                        : `${q.score} / ${q.points}`
+                      }
+                      /
+                      {q.points}
+                    </p>
+
+                    {q.teacher_comment && (
+
+                      <p>
+                        Feedback:
+                        {' '}
+                        {q.teacher_comment}
+                      </p>
+
+                    )}
+
+                  </div>
+
+                </div>
+
+              ))}
+
+            </div>
+
+          </div>
+        )}
+
+        {/* ======================
+            STUDENT SUBMIT
+        ====================== */}
+        {role === 'student' &&
+         !quizSubmitted && (
+        <button
+          disabled={isExpired}
+
+          onClick={handleSubmitQuiz}
+
+          className={`
+            px-6 py-3
+            rounded-xl
+            text-white
+            transition
+
+            ${
+              isExpired
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700'
+            }
+          `}
+        >
+          {isExpired
+            ? 'Deadline Passed'
+            : 'Submit Quiz'}
+        </button>
+        )}
+
+      </div>
+    )}
+
+  </div>
+)}
+
+
+
 
       {/* ======================
           YOUR SUBMISSION
@@ -1947,258 +2176,304 @@ const handleGradeQuizAnswer =
       </div>
     </>
   )}
-      {/* ======================
-          QUIZ ANSWERS
-      ====================== */}
-      {role === 'teacher' &&
-      assignment.type === 'quiz' && (
 
-        <div className="
-          bg-white rounded-2xl
-          shadow p-6 mb-6
-        ">
 
-          <h2 className="
-            text-xl font-bold
-            text-gray-800 mb-5
-          ">
-            Student Quiz Answers
-          </h2>
-
-          {quizAnswers.length === 0 ? (
-
-            <p className="text-gray-500">
-              No quiz submissions yet
-            </p>
-
-          ) : (
-
-            <div className="space-y-5">
-
-              {quizAnswers.map((a) => (
-
-                <div
-                  key={a.answer_id}
-                  className="
-                    border rounded-xl
-                    p-5
-                  "
-                >
-
-                  {/* STUDENT */}
-                  <div className="
-                    flex items-center
-                    justify-between
-                    mb-3
-                  ">
-
-                    <div>
-
-                      <h3 className="
-                        font-semibold
-                        text-gray-800
-                      ">
-                        {a.student_name}
-                      </h3>
-
-                      <p className="
-                        text-sm text-gray-500
-                      ">
-                        {a.question_type.replace(
-                          '_',
-                          ' '
-                        )}
-                      </p>
-
-                    </div>
-
-                    <span className="
-                      bg-blue-100
-                      text-blue-700
-                      px-3 py-1
-                      rounded-full
-                      text-xs font-medium
-                    ">
-                      {a.points} pts
-                    </span>
-
-                  </div>
-
-                  {/* QUESTION */}
-                  <p className="
-                    font-medium
-                    text-gray-700
-                    mb-4
-                  ">
-                    {a.question_text}
-                  </p>
-
-                  {/* SUBJECTIVE */}
-                  {a.question_type ===
-                    'subjective' && (
-
-                    <div className="
-                      bg-gray-50
-                      border rounded-xl
-                      p-4
-                    ">
-                      {a.answer_text || '-'}
-                    </div>
-                  )}
-
-                  {/* SINGLE CHOICE */}
-                  {a.question_type ===
-                    'single_choice' && (
-
-                    <div className="
-                      space-y-2
-                    ">
-
-                      <div className="
-                        bg-blue-50
-                        border border-blue-200
-                        rounded-xl
-                        p-3
-                      ">
-                        <span className="
-                          text-sm text-gray-500
-                        ">
-                          Student Answer:
-                        </span>
-
-                        <p className="
-                          font-medium text-blue-700
-                        ">
-                          {a.option_text || '-'}
-                        </p>
-
-                      </div>
-
-                      <div className="
-                        bg-green-50
-                        border border-green-200
-                        rounded-xl
-                        p-3
-                      ">
-                        <span className="
-                          text-sm text-gray-500
-                        ">
-                          Correct Answer:
-                        </span>
-
-                        <p className="
-                          font-medium text-green-700
-                        ">
-                          {a.correct_answer || '-'}
-                        </p>
-
-                      </div>
-
-                    </div>
-                  )}
-
-{a.question_type === 'subjective' && (
-  <div>
 {/* ======================
-    GRADING
+    QUIZ ANSWERS
 ====================== */}
-<div className="
-  mt-5
-  border-t pt-5
-">
+{role === 'teacher' &&
+ assignment.type === 'quiz' && (
+<>
 
-  {/* SCORE */}
-  <input
-    type="number"
-    placeholder="Score"
+  {/* QUIZ RESULTS */}
+  <div className="bg-white rounded-2xl shadow p-6 mb-6">
 
-    value={
-      quizGradeData[a.answer_id]?.score ??
-      a.score ??
-      ''
-    }
+    <h2 className="text-xl font-bold mb-4">
+      Quiz Results
+    </h2>
 
-    onChange={(e) =>
-      setQuizGradeData({
-        ...quizGradeData,
+    {quizScores.length === 0 ? (
 
-        [a.answer_id]: {
-          ...quizGradeData[a.answer_id],
+      <p className="text-gray-500">
+        No quiz submissions yet
+      </p>
 
-          score: e.target.value
-        }
-      })
-    }
+    ) : (
 
-    className="
-      border rounded-xl
-      px-4 py-3
-      w-full mb-3
-    "
-  />
+      <table className="w-full">
 
-  {/* COMMENT */}
-  <textarea
-    placeholder="Write feedback..."
+        <thead>
+          <tr className="border-b">
+            <th className="text-left p-3">
+              Student
+            </th>
 
-    value={
-      quizGradeData[a.answer_id]
-        ?.teacher_comment ??
-      a.teacher_comment ??
-      ''
-    }
+            <th className="text-left p-3">
+              Total Score
+            </th>
+          </tr>
+        </thead>
 
-    onChange={(e) =>
-      setQuizGradeData({
-        ...quizGradeData,
+        <tbody>
 
-        [a.answer_id]: {
-          ...quizGradeData[a.answer_id],
+          {quizScores.map(student => (
 
-          teacher_comment:
-            e.target.value
-        }
-      })
-    }
+            <tr
+              key={student.id}
+              className="border-b"
+            >
 
-    className="
-      border rounded-xl
-      w-full p-3 mb-3
-    "
-  />
+              <td className="p-3">
+                {student.name}
+              </td>
 
-  {/* SAVE */}
-  <button
-    onClick={() =>
-      handleGradeQuizAnswer(
-        a.answer_id
-      )
-    }
+              <td className="p-3 font-semibold text-blue-600">
+                {Number(student.total_score).toFixed(0)}/100
+              </td>
 
-    className="
-      bg-green-600
-      hover:bg-green-700
-      text-white
-      px-5 py-2
-      rounded-xl
-      transition
-    "
-  >
-    Save Grade
-  </button>
+            </tr>
+
+          ))}
+
+        </tbody>
+
+      </table>
+
+    )}
 
   </div>
-</div>
-)}
 
-                </div>
-              ))}
+{/* STUDENT QUIZ ANSWERS */}
+{quizAnswers.length > 0 && (
+
+  <div
+    className="
+      bg-white rounded-2xl
+      shadow p-6 mb-6
+    "
+  >
+
+    <h2 className="text-xl font-bold mb-4">
+      Student Quiz Answers
+    </h2>
+
+    <div className="space-y-5">
+
+      {quizAnswers.map((a) => (
+
+        <div
+          key={a.answer_id}
+          className="
+            border rounded-xl
+            p-5
+          "
+        >
+
+          {/* STUDENT */}
+          <div className="
+            flex items-center
+            justify-between
+            mb-3
+          ">
+
+            <div>
+
+              <h3 className="
+                font-semibold
+                text-gray-800
+              ">
+                {a.student_name}
+              </h3>
+
+              <p className="
+                text-sm text-gray-500
+              ">
+                {a.question_type.replace(
+                  '_',
+                  ' '
+                )}
+              </p>
+
+            </div>
+
+            <span className="
+              bg-blue-100
+              text-blue-700
+              px-3 py-1
+              rounded-full
+              text-xs font-medium
+            ">
+              {a.points} pts
+            </span>
+
+          </div>
+
+          {/* QUESTION */}
+          <p className="
+            font-medium
+            text-gray-700
+            mb-4
+          ">
+            {a.question_text}
+          </p>
+
+          {/* SUBJECTIVE */}
+          {a.question_type ===
+            'subjective' && (
+
+            <div className="
+              bg-gray-50
+              border rounded-xl
+              p-4
+            ">
+              {a.answer_text || '-'}
+            </div>
+          )}
+
+          {/* SINGLE CHOICE */}
+          {a.question_type ===
+            'single_choice' && (
+
+            <div className="
+              space-y-2
+            ">
+
+              <div className="
+                bg-blue-50
+                border border-blue-200
+                rounded-xl
+                p-3
+              ">
+                <span className="
+                  text-sm text-gray-500
+                ">
+                  Student Answer:
+                </span>
+
+                <p className="
+                  font-medium text-blue-700
+                ">
+                  {a.option_text || '-'}
+                </p>
+
+              </div>
+
+              <div className="
+                bg-green-50
+                border border-green-200
+                rounded-xl
+                p-3
+              ">
+                <span className="
+                  text-sm text-gray-500
+                ">
+                  Correct Answer:
+                </span>
+
+                <p className="
+                  font-medium text-green-700
+                ">
+                  {a.correct_answer || '-'}
+                </p>
+
+              </div>
 
             </div>
           )}
 
+          {a.question_type === 'subjective' && (
+
+            <div>
+              <div className="
+                mt-5
+                border-t pt-5
+              ">
+
+                <input
+                  type="number"
+                  min="0"
+                  max={a.points}
+                  placeholder={`0 - ${a.points}`}
+                  onChange={(e) =>
+                    setQuizGradeData({
+                      ...quizGradeData,
+
+                      [a.answer_id]: {
+                        ...quizGradeData[a.answer_id],
+
+                        score: e.target.value
+                      }
+                    })
+                  }
+                  className="
+                    border rounded-xl
+                    px-4 py-3
+                    w-full mb-3
+                    bg-gray-50
+                  "
+                />
+
+                <textarea
+                  placeholder="Write feedback..."
+                  value={
+                    quizGradeData[a.answer_id]
+                      ?.teacher_comment ??
+                    a.teacher_comment ??
+                    ''
+                  }
+                  onChange={(e) =>
+                    setQuizGradeData({
+                      ...quizGradeData,
+
+                      [a.answer_id]: {
+                        ...quizGradeData[a.answer_id],
+
+                        teacher_comment:
+                          e.target.value
+                      }
+                    })
+                  }
+                  className="
+                    border rounded-xl
+                    w-full p-3 mb-3
+                    bg-gray-50
+                  "
+                />
+
+                <button
+                  onClick={() =>
+                    handleGradeQuizAnswer(
+                      a.answer_id
+                    )
+                  }
+                  className="
+                    bg-green-600
+                    hover:bg-green-700
+                    text-white
+                    px-5 py-2
+                    rounded-xl
+                  "
+                >
+                  Save Grade
+                </button>
+
+              </div>
+            </div>
+
+          )}
+
         </div>
-      )}
+
+      ))}
+
+    </div>
+
+  </div>
+
+)}
+
+    </>
+    )}
 
 {/* ======================
     QUIZ ANALYTICS
@@ -2261,103 +2536,148 @@ const handleGradeQuizAnswer =
             {/* OPTIONS */}
             <div className="space-y-4">
 
-              {q.options.map((opt) => (
+              {q.question_type === 'single_choice' ? (
+
+                q.options?.map((opt) => (
+
+                  <div
+                    key={opt.id}
+                    className="
+                      border rounded-xl
+                      p-4
+                    "
+                  >
+
+                    <div
+                      className="
+                        flex items-center
+                        justify-between
+                        mb-3
+                      "
+                    >
+
+                      <div>
+
+                        <p
+                          className={`
+                            font-medium
+                            ${
+                              opt.is_correct
+                                ? 'text-green-700'
+                                : 'text-gray-700'
+                            }
+                          `}
+                        >
+                          {opt.option_text}
+                          {opt.is_correct && ' ✓'}
+                        </p>
+
+                        <p className="text-sm text-gray-500">
+                          Selected {opt.selected_count} students
+                        </p>
+
+                      </div>
+
+                      <span
+                        className="
+                          bg-blue-100
+                          text-blue-700
+                          px-3 py-1
+                          rounded-full
+                          text-sm font-medium
+                        "
+                      >
+                        {opt.selection_rate}%
+                      </span>
+
+                    </div>
+
+                    <div
+                      className="
+                        flex flex-wrap
+                        gap-2
+                      "
+                    >
+
+                      {opt.students?.length ? (
+
+                        opt.students.map(
+                          (student, index) => (
+
+                            <span
+                              key={index}
+                              className="
+                                bg-gray-100
+                                text-gray-700
+                                px-3 py-1
+                                rounded-full
+                                text-xs
+                              "
+                            >
+                              {student}
+                            </span>
+
+                          )
+                        )
+
+                      ) : (
+
+                        <span
+                          className="
+                            text-sm
+                            text-gray-400
+                          "
+                        >
+                          No students selected
+                        </span>
+
+                      )}
+
+                    </div>
+
+                  </div>
+
+                ))
+
+              ) : (
 
                 <div
-                  key={opt.id}
                   className="
-                    border rounded-xl
+                    bg-blue-50
+                    border
+                    border-blue-200
+                    rounded-xl
                     p-4
                   "
                 >
 
-                  {/* HEADER */}
-                  <div className="
-                    flex items-center
-                    justify-between
-                    mb-3
-                  ">
+                  <div className="grid grid-cols-2 gap-4">
 
                     <div>
-
-                      <p className={`
-                        font-medium
-
-                        ${
-                          opt.is_correct
-                            ? 'text-green-700'
-                            : 'text-gray-700'
-                        }
-                      `}>
-                        {opt.option_text}
-
-                        {opt.is_correct &&
-                          ' ✓'}
+                      <p className="text-sm text-gray-500">
+                        Total Answers
                       </p>
 
-                      <p className="
-                        text-sm text-gray-500
-                      ">
-                        Selected:
-                        {' '}
-                        {opt.selected_count}
-                        {' '}
-                        students
+                      <p className="text-xl font-bold text-blue-700">
+                        {q.total_answers}
                       </p>
-
                     </div>
 
-                    <span className="
-                      bg-blue-100
-                      text-blue-700
-                      px-3 py-1
-                      rounded-full
-                      text-sm font-medium
-                    ">
-                      {opt.selection_rate}%
-                    </span>
+                    <div>
+                      <p className="text-sm text-gray-500">
+                        Average Score
+                      </p>
 
-                  </div>
-
-                  {/* STUDENTS */}
-                  <div className="
-                    flex flex-wrap
-                    gap-2
-                  ">
-
-                    {opt.students?.length ? (
-
-                      opt.students.map(
-                        (student, index) => (
-
-                        <span
-                          key={index}
-                          className="
-                            bg-gray-100
-                            text-gray-700
-                            px-3 py-1
-                            rounded-full
-                            text-xs
-                          "
-                        >
-                          {student}
-                        </span>
-                      ))
-
-                    ) : (
-
-                      <span className="
-                        text-sm text-gray-400
-                      ">
-                        No students selected
-                      </span>
-
-                    )}
+                      <p className="text-xl font-bold text-green-700">
+                        {q.average_score ?? 0}
+                      </p>
+                    </div>
 
                   </div>
 
                 </div>
-              ))}
+
+              )}
 
             </div>
 
@@ -2439,6 +2759,7 @@ const handleGradeQuizAnswer =
                 border rounded-xl
                 w-full p-3
                 mb-4
+                bg-gray-50 focus:ring-2 focus:ring-blue-500
               "
             />
 
@@ -2457,6 +2778,7 @@ const handleGradeQuizAnswer =
                 border rounded-xl
                 w-full p-3
                 mb-4
+                bg-gray-50 focus:ring-2 focus:ring-blue-500
               "
             >
               <option value="subjective">
@@ -2486,6 +2808,7 @@ const handleGradeQuizAnswer =
                 border rounded-xl
                 w-full p-3
                 mb-4
+                bg-gray-50 focus:ring-2 focus:ring-blue-500
               "
             />
 
@@ -2552,6 +2875,7 @@ const handleGradeQuizAnswer =
                       className="
                         border rounded-xl
                         w-full p-3
+                        bg-gray-50 focus:ring-2 focus:ring-blue-500
                       "
                     />
 
@@ -2579,8 +2903,8 @@ const handleGradeQuizAnswer =
                 }
 
                 className="
-                  bg-gray-300
-                  hover:bg-gray-400
+                  bg-gray-50
+                  hover:bg-gray-200
                   px-5 py-2
                   rounded-xl
                   transition

@@ -236,7 +236,8 @@ export default function CourseDetail() {
 
           <input
             placeholder="Title"
-            className="border p-2 w-full"
+            className="border p-2 w-full
+            bg-gray-50 focus:ring-2 focus:ring-blue-500"
             value={form.title}
             onChange={(e) =>
               setForm({ ...form, title: e.target.value })
@@ -245,7 +246,8 @@ export default function CourseDetail() {
 
           <input
             placeholder="Description"
-            className="border p-2 w-full"
+            className="border p-2 w-full
+            bg-gray-50 focus:ring-2 focus:ring-blue-500"
             value={form.description}
             onChange={(e) =>
               setForm({ ...form, description: e.target.value })
@@ -254,7 +256,8 @@ export default function CourseDetail() {
 
           <input
             type="datetime-local"
-            className="border p-2 w-full"
+            className="border p-2 w-full
+            bg-gray-50 focus:ring-2 focus:ring-blue-500"
             value={form.deadline}
             onChange={(e) =>
               setForm({ ...form, deadline: e.target.value })
@@ -262,7 +265,8 @@ export default function CourseDetail() {
           />
 
           <select
-            className="border p-2 w-full"
+            className="border p-2 w-full
+            bg-gray-50 focus:ring-2 focus:ring-blue-500"
             value={form.difficulty}
             onChange={(e) =>
               setForm({ ...form, difficulty: e.target.value })
@@ -274,7 +278,8 @@ export default function CourseDetail() {
           </select>
 
           <select
-            className="border p-2 w-full"
+            className="border p-2 w-full
+            bg-gray-50 focus:ring-2 focus:ring-blue-500"
             value={form.type}
             onChange={(e) =>
               setForm({
@@ -301,7 +306,8 @@ export default function CourseDetail() {
                 placeholder="Allowed formats (pdf,docx,zip)"
                 value={formats}
                 onChange={(e) => setFormats(e.target.value)}
-                className="border p-2 w-full"
+                className="border p-2 w-full
+                bg-gray-50 focus:ring-2 focus:ring-blue-500"
               />
 
               <input
@@ -309,12 +315,13 @@ export default function CourseDetail() {
                 placeholder="Max file size (MB)"
                 value={maxSize}
                 onChange={(e) => setMaxSize(e.target.value)}
-                className="border p-2 w-full"
+                className="border p-2 w-full
+                bg-gray-50 focus:ring-2 focus:ring-blue-500"
               />
 
               <input
                 type="file"
-                className="border p-2 w-full"
+                className="border p-2 w-full "
                 onChange={(e) => setFile(e.target.files[0])}
               />
 

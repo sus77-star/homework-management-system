@@ -235,13 +235,15 @@ export default function CoursesPage() {
           placeholder="Search course..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="p-2 border rounded w-1/3"
+          className="p-2 border rounded w-1/3
+          bg-gray-50 focus:ring-2 focus:ring-blue-500"
         />
 
         <select
           value={teacherFilter}
           onChange={(e) => setTeacherFilter(e.target.value)}
-          className="p-2 border rounded"
+          className="p-2 border rounded
+          bg-gray-50 focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All Teachers</option>
           {teachers.map((t) => (

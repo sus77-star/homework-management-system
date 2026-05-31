@@ -215,7 +215,7 @@ export default function GradesPage() {
               absolute left-3 top-3
               text-gray-400
             "
-            size={18}
+            size={23}
           />
 
           <input
@@ -229,6 +229,7 @@ export default function GradesPage() {
               focus:outline-none
               focus:ring-2
               focus:ring-yellow-500
+              bg-gray-50
             "
 
             value={search}

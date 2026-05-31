@@ -152,7 +152,7 @@ export default function SubmissionsPage() {
               absolute left-3 top-3
               text-gray-400
             "
-            size={18}
+            size={23}
           />
 
           <input
@@ -166,6 +166,7 @@ export default function SubmissionsPage() {
               focus:outline-none
               focus:ring-2
               focus:ring-blue-500
+              bg-gray-50
             "
 
             value={search}

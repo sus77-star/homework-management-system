@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -10,6 +11,31 @@ export default function LoginPage() {
     username: '',
     password: ''
   });
+
+  useEffect(() => {
+
+    const token = localStorage.getItem('token');
+
+    if (!token) return;
+
+    try {
+
+      const decoded = jwtDecode(token);
+
+      const expired =
+        decoded.exp * 1000 < Date.now();
+
+      if (!expired) {
+        navigate('/dashboard');
+      } else {
+        localStorage.removeItem('token');
+      }
+
+    } catch {
+      localStorage.removeItem('token');
+    }
+
+  }, [navigate]);
 
   const handleChange = (e) => {
     setForm({

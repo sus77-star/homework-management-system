@@ -10,7 +10,8 @@ import {
   FileText,
   CheckCircle,
   AlertCircle,
-  XCircle
+  XCircle,
+  Clock3
 } from 'lucide-react';
 
 export default function AssignmentDetail() {
@@ -110,6 +111,9 @@ const waitingForGrade =
     return acc;
 
   }, {});
+
+  const [expandedStudent, setExpandedStudent] =
+  useState(null);
 // ==============================
 // INIT
 // ==============================
@@ -2280,64 +2284,6 @@ for (const q of questions) {
  assignment.type === 'quiz' && (
 <>
 
-  {/* QUIZ RESULTS */}
-  <div className="bg-white rounded-2xl shadow p-6 mb-6">
-
-    <h2 className="text-xl font-bold mb-4 text-gray-800">
-      Quiz Results
-    </h2>
-
-    {quizScores.length === 0 ? (
-
-      <p className="text-gray-500">
-        No quiz submissions yet
-      </p>
-
-    ) : (
-
-      <table className="w-full">
-
-        <thead>
-          <tr className="border-b">
-            <th className="text-center p-3 font-semibold text-gray-700">
-              Student
-            </th>
-
-            <th className="text-center p-3 font-semibold text-gray-700">
-              Total Score
-            </th>
-          </tr>
-        </thead>
-
-        <tbody>
-
-          {quizScores.map(student => (
-
-            <tr
-              key={student.id}
-              className="border-b"
-            >
-
-              <td className="p-3 font-medium text-gray-800">
-                {student.name}
-              </td>
-
-              <td className="p-3 font-semibold text-blue-600">
-                {Number(student.total_score).toFixed(0)}/100
-              </td>
-
-            </tr>
-
-          ))}
-
-        </tbody>
-
-      </table>
-
-    )}
-
-  </div>
-
 
 {/* STUDENT QUIZ ANSWERS */}
 {quizAnswers.length > 0 && (
@@ -2355,7 +2301,125 @@ for (const q of questions) {
 
     <div className="space-y-5">
 
-      {quizAnswers.map((a) => (
+{Object.entries(groupedQuizAnswers).map(
+  ([studentName, answers]) => {
+
+    const studentScore =
+      quizScores.find(
+        s => s.name === studentName
+      );
+
+    const pendingCount =
+      answers.filter(
+        a =>
+          a.question_type === 'subjective' &&
+          a.score == null
+      ).length;
+
+    const isOpen =
+      expandedStudent === studentName;
+
+return (
+
+  <div
+    key={studentName}
+    className="
+      border rounded-xl
+      overflow-hidden
+    "
+  >
+
+    <div
+      onClick={() =>
+        setExpandedStudent(
+          isOpen
+            ? null
+            : studentName
+        )
+      }
+      className="
+        flex items-center
+        justify-between
+        p-4
+        bg-gray-50
+        cursor-pointer
+        hover:bg-gray-100
+        transition
+      "
+    >
+
+      <div>
+
+        <h3 className="
+          font-semibold
+          text-gray-800
+        ">
+          {studentName}
+        </h3>
+
+        <p className="
+          text-sm
+          text-gray-500
+        ">
+        {answers.filter(
+          a => a.question_type === 'subjective'
+        ).length} Subjective Questions
+        </p>
+
+      </div>
+
+      <div className="
+        flex items-center
+        gap-3
+      ">
+
+        {pendingCount > 0 && (
+          <span
+            className="
+              bg-yellow-100
+              text-yellow-700
+              px-3 py-1
+              rounded-full
+              text-sm
+              font-medium
+            "
+          >
+            <Clock3 size={14}/>
+            {pendingCount} Pending
+          </span>
+        )}
+
+        <span
+          className="
+            bg-blue-100
+            text-blue-700
+            px-3 py-1
+            rounded-full
+            text-sm
+            font-medium
+          "
+        >
+          {Math.round(
+            studentScore?.total_score || 0
+          )}/100
+        </span>
+
+      </div>
+
+    </div>
+
+    {isOpen && (
+
+      <div className="
+        p-5
+        space-y-5
+      ">
+
+      {answers
+        .filter(
+          a => a.question_type === 'subjective'
+        )
+        .map((a, index) => (
 
         <div
           key={a.answer_id}
@@ -2378,7 +2442,7 @@ for (const q of questions) {
                 font-semibold
                 text-gray-800
               ">
-                {a.student_name}
+                Question {index + 1}
               </h3>
 
               <p className="
@@ -2489,6 +2553,11 @@ for (const q of questions) {
                   type="number"
                   min="0"
                   max={a.points}
+                  value={
+                    quizGradeData[a.answer_id]?.score ??
+                    a.score ??
+                    ''
+                  }
                   placeholder={`0 - ${a.points}`}
                   onChange={(e) =>
                     setQuizGradeData({
@@ -2550,26 +2619,34 @@ for (const q of questions) {
                     rounded-xl
                   "
                 >
-                  Save Grade
+                {a.score != null
+                    ? 'Update Grade'
+                    : 'Save Grade'}
                 </button>
 
               </div>
             </div>
 
           )}
-
         </div>
+        ))}
 
-      ))}
+      </div>
 
-    </div>
+    )}
 
   </div>
 
-)}
+);
 
-    </>
-    )}
+}
+)}
+</div>
+</div>
+
+)}
+  </>
+)}
 
 {/* ======================
     QUIZ ANALYTICS

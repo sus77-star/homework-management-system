@@ -137,14 +137,14 @@ export default function ClassesPage() {
             placeholder="Code"
             value={form.code}
             onChange={(e) => setForm({ ...form, code: e.target.value })}
-            className="p-2 border rounded"
+            className="p-2 border rounded bg-slate-50 focus:ring-2 focus:ring-blue-500"
           />
 
           <input
             placeholder="Name"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="p-2 border rounded"
+            className="p-2 border rounded bg-slate-50 focus:ring-2 focus:ring-blue-500"
           />
 
           <button
@@ -162,13 +162,13 @@ export default function ClassesPage() {
           placeholder="Search class..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="p-2 border rounded w-1/3"
+          className="p-2 border rounded w-1/3 bg-white focus:ring-2 focus:ring-blue-500"
         />
 
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="p-2 border rounded"
+          className="p-2 border rounded bg-white focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All</option>
           <option value="active">Active</option>

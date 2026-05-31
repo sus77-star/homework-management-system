@@ -150,15 +150,15 @@ export default function LoginLogsPage() {
 
             <tr>
 
-              <th className="text-left px-6 py-4 font-semibold text-gray-600">
+              <th className="text-center px-6 py-4 font-semibold text-gray-600 ">
                 Name
               </th>
 
-              <th className="text-left px-6 py-4 font-semibold text-gray-600">
+              <th className="text-center px-6 py-4 font-semibold text-gray-600">
                 Role
               </th>
 
-              <th className="text-left px-6 py-4 font-semibold text-gray-600">
+              <th className="text-center px-6 py-4 font-semibold text-gray-600">
                 Login Time
               </th>
 

@@ -9,7 +9,8 @@ import {
   Download,
   FileText,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  XCircle
 } from 'lucide-react';
 
 export default function AssignmentDetail() {
@@ -97,6 +98,18 @@ const waitingForGrade =
       q.score == null
   );
 
+  const groupedQuizAnswers =
+  quizAnswers.reduce((acc, answer) => {
+
+    if (!acc[answer.student_name]) {
+      acc[answer.student_name] = [];
+    }
+
+    acc[answer.student_name].push(answer);
+
+    return acc;
+
+  }, {});
 // ==============================
 // INIT
 // ==============================
@@ -1249,12 +1262,48 @@ for (const q of questions) {
     shadow p-6 mb-6
   ">
 
-    <h2 className="
-      text-xl font-bold
-      text-gray-800 mb-5
+    <div className="
+      flex
+      justify-between
+      items-center
+      mb-5
     ">
-      Questions
-    </h2>
+
+      <h2 className="
+        text-xl font-bold text-gray-800 
+      ">
+        Questions
+      </h2>
+
+      {role === 'student' &&
+      quizSubmitted &&
+      quizReview && (
+
+        <div className="
+          bg-blue-50
+          border border-blue-200
+          rounded-xl
+          px-4 py-2
+        ">
+
+          <p className="
+            text-xs text-gray-500
+          ">
+            Quiz Result
+          </p>
+
+          <p className="
+            text-xl font-bold
+            text-blue-600
+          ">
+            {quizReview.total_score}/100
+          </p>
+
+        </div>
+
+      )}
+
+    </div>
 
     {questions.length === 0 ? (
 
@@ -1266,7 +1315,15 @@ for (const q of questions) {
 
       <div className="space-y-5">
 
-        {questions.map((q, index) => (
+        
+    {questions.map((q, index) => {
+
+      const review =
+        quizReview?.questions?.find(
+          r => r.id === q.id
+        );
+
+      return (
 
           <div
             key={q.id}
@@ -1320,15 +1377,22 @@ for (const q of questions) {
 
             </div>
 
-              <span className="
-                bg-blue-100
-                text-blue-700
-                px-3 py-1
-                rounded-full
-                text-xs font-medium
-              ">
-                {q.points} pts
-              </span>
+            <span className="
+              bg-blue-100
+              text-blue-700
+              px-3 py-1
+              rounded-full
+              text-xs font-medium
+            ">
+          {role === 'student' && quizSubmitted
+            ? `${
+                review?.score != null
+                  ? Math.round(review.score)
+                  : 'Pending' 
+              }/${q.points}`
+            : `${q.points} pts`
+          }
+            </span>
 
             </div>
 
@@ -1403,6 +1467,125 @@ for (const q of questions) {
 
 )}
 
+{role === 'student' &&
+ quizSubmitted && (
+
+  <div className="mt-5">
+
+    <p className="font-medium text-gray-700 mb-4">
+      {q.question_text}
+    </p>
+
+    <div className="
+      bg-white-50
+      rounded-xl
+      p-4
+      space-y-2
+    ">
+
+      {q.question_type === 'subjective' && ( 
+      <p>
+          <span className="font-medium">
+            Your Answer:
+          </span>{' '}
+          {review?.student_answer ||
+          review?.answer_text ||
+          '-'}
+        </p>   
+
+      )}
+      
+      {q.question_type === 'single_choice' && (
+
+        <div className="space-y-2 mt-3">
+
+          {q.options?.map((opt) => {
+
+            const isStudentAnswer =
+              opt.option_text === review?.student_answer;
+
+            const isCorrect =
+              opt.option_text === review?.correct_answer;
+
+            return (
+
+              <div
+                key={opt.id}
+                className={`
+                  border rounded-xl
+                  px-4 py-3
+                  flex justify-between items-center
+
+                  ${
+                    isCorrect
+                      ? 'bg-green-50 border-green-300'
+                      : isStudentAnswer
+                        ? 'bg-red-50 border-red-300'
+                        : 'bg-white'
+                  }
+                `}
+              >
+
+                <span>
+                  {opt.option_text}
+                </span>
+
+              <div className="flex items-center gap-2">
+
+                {isCorrect && (
+                  <>
+                    <CheckCircle
+                      size={18}
+                      className="text-green-600"
+                    />
+                    <span className="text-green-700 text-sm font-medium">
+                      Correct
+                    </span>
+                  </>
+                )}
+
+                {!isCorrect &&
+                isStudentAnswer && (
+                  <>
+                    <XCircle
+                      size={18}
+                      className="text-red-600"
+                    />
+                    <span className="text-red-700 text-sm font-medium">
+                      Your Answer
+                    </span>
+                  </>
+                )}
+
+              </div>
+
+              </div>
+
+            );
+
+          })}
+
+        </div>
+
+      )}
+
+      {review?.teacher_comment && (
+
+        <p>
+          <span className="font-medium">
+            Feedback:
+          </span>{' '}
+          {review?.teacher_comment}
+        </p>
+
+      )}
+
+    </div>
+
+  </div>
+
+)}
+
 {/* ======================
     TEACHER VIEW
 ====================== */}
@@ -1436,22 +1619,34 @@ for (const q of questions) {
 
         {q.options?.map((opt) => (
 
-          <div
-            key={opt.id}
-            className={`
-              border rounded-lg
-              px-4 py-2
-              text-sm
-              ${
-                opt.is_correct
-                  ? 'bg-green-50 border-green-300 text-green-700'
-                  : 'bg-gray-50'
-              }
-            `}
-          >
-            {opt.option_text}
-            {opt.is_correct && ' ✓'}
+        <div
+          key={opt.id}
+          className={`
+            border rounded-lg
+            px-4 py-2
+            text-sm
+            ${
+              opt.is_correct
+                ? 'bg-green-50 border-green-300 text-green-700'
+                : 'bg-gray-50'
+            }
+          `}
+        >
+          <div className="flex items-center justify-between">
+
+            <span>
+              {opt.option_text}
+            </span>
+
+            {opt.is_correct && (
+              <CheckCircle
+                size={18}
+                className="text-green-600"
+              />
+            )}
+
           </div>
+        </div>
 
         ))}
 
@@ -1465,109 +1660,9 @@ for (const q of questions) {
            
 
           </div>
-        ))}
+        );})}
 
-        {role==='student' && quizSubmitted && quizReview && (
 
-          <div className="
-            bg-white
-            rounded-2xl
-            shadow
-            p-6
-          ">
-
-            <div className="mb-6">
-
-              <h2 className="
-                text-2xl
-                font-bold
-              ">
-                Quiz Result
-              </h2>
-
-              <p className="
-                text-3xl
-                font-bold
-                text-blue-600
-                mt-2
-              ">
-                {quizReview.total_score}/100
-              </p>
-
-            </div>
-
-            <div className="space-y-5">
-
-              {quizReview.questions.map((q,index) => (
-
-                <div
-                  key={q.id}
-                  className="
-                    border
-                    rounded-xl
-                    p-5
-                  "
-                >
-
-                  <h3 className="font-semibold">
-                    Question {index + 1}
-                  </h3>
-
-                  <p className="mt-2">
-                    {q.question_text}
-                  </p>
-
-                  <div className="mt-4">
-
-                    <p>
-                      Your Answer:
-                      {' '}
-                      {q.student_answer ||
-                      q.answer_text ||
-                      '-'}
-                    </p>
-
-                    {q.question_type ===
-                    'single_choice' && (
-
-                      <p>
-                        Correct Answer:
-                        {' '}
-                        {q.correct_answer}
-                      </p>
-                    )}
-
-                    <p>
-                      Score:
-                      {' '}
-                      {q.score == null
-                        ? 'Not graded yet'
-                        : `${q.score} / ${q.points}`
-                      }
-                      /
-                      {q.points}
-                    </p>
-
-                    {q.teacher_comment && (
-
-                      <p>
-                        Feedback:
-                        {' '}
-                        {q.teacher_comment}
-                      </p>
-
-                    )}
-
-                  </div>
-
-                </div>
-
-              ))}
-
-            </div>
-
-          </div>
-        )}
 
         {/* ======================
             STUDENT SUBMIT
@@ -2188,7 +2283,7 @@ for (const q of questions) {
   {/* QUIZ RESULTS */}
   <div className="bg-white rounded-2xl shadow p-6 mb-6">
 
-    <h2 className="text-xl font-bold mb-4">
+    <h2 className="text-xl font-bold mb-4 text-gray-800">
       Quiz Results
     </h2>
 
@@ -2204,11 +2299,11 @@ for (const q of questions) {
 
         <thead>
           <tr className="border-b">
-            <th className="text-left p-3">
+            <th className="text-center p-3 font-semibold text-gray-700">
               Student
             </th>
 
-            <th className="text-left p-3">
+            <th className="text-center p-3 font-semibold text-gray-700">
               Total Score
             </th>
           </tr>
@@ -2223,7 +2318,7 @@ for (const q of questions) {
               className="border-b"
             >
 
-              <td className="p-3">
+              <td className="p-3 font-medium text-gray-800">
                 {student.name}
               </td>
 
@@ -2243,6 +2338,7 @@ for (const q of questions) {
 
   </div>
 
+
 {/* STUDENT QUIZ ANSWERS */}
 {quizAnswers.length > 0 && (
 
@@ -2253,7 +2349,7 @@ for (const q of questions) {
     "
   >
 
-    <h2 className="text-xl font-bold mb-4">
+    <h2 className="text-xl font-bold mb-4 text-gray-800">
       Student Quiz Answers
     </h2>
 
@@ -2503,7 +2599,9 @@ for (const q of questions) {
 
       <div className="space-y-6">
 
-        {quizAnalytics.map((q) => (
+      {[...quizAnalytics]
+        .sort((a, b) => a.question_id - b.question_id)
+        .map((q, index) => (
 
           <div
             key={q.question_id}
@@ -2514,17 +2612,25 @@ for (const q of questions) {
           >
 
             {/* QUESTION */}
+            
             <div className="mb-5">
 
               <h3 className="
                 font-semibold
                 text-gray-800
               ">
-                {q.question_text}
+                Question {index + 1}
               </h3>
 
               <p className="
-                text-sm text-gray-500 mt-1
+                text-gray-600
+                mt-1
+              ">
+                {q.question_text}
+              </p>
+
+              <p className="
+                text-sm text-gray-500 mt-2
               ">
                 Total Answers:
                 {' '}
@@ -2558,23 +2664,36 @@ for (const q of questions) {
 
                       <div>
 
-                        <p
-                          className={`
-                            font-medium
-                            ${
-                              opt.is_correct
-                                ? 'text-green-700'
-                                : 'text-gray-700'
-                            }
-                          `}
-                        >
-                          {opt.option_text}
-                          {opt.is_correct && ' ✓'}
-                        </p>
+            <p
+              className={`
+                font-medium
+                flex items-center gap-2
+                ${
+                  opt.is_correct
+                    ? 'text-green-700'
+                    : 'text-gray-700'
+                }
+              `}
+            >
+              {opt.option_text}
 
-                        <p className="text-sm text-gray-500">
-                          Selected {opt.selected_count} students
-                        </p>
+            {opt.is_correct && (
+              <span
+                className="
+                  bg-green-100
+                  text-green-700
+                  px-2 py-0.5
+                  rounded-full
+                  flex items-center
+                  gap-1
+                  text-xs
+                "
+              >
+                <CheckCircle size={12} />
+                Correct
+              </span>
+            )}
+            </p>
 
                       </div>
 

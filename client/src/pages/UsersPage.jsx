@@ -156,12 +156,12 @@ export default function UsersPage() {
         <h2 className="font-semibold mb-3 text-gray-800">Create User</h2>
 
         <div className="grid grid-cols-4 gap-3">
-          <input name="name" value={form.name} onChange={handleChange} placeholder="Name" className="p-2 border rounded" />
-          <input name="username" value={form.username} onChange={handleChange} placeholder="Username" className="p-2 border rounded" />
-          <input name="email" value={form.email} onChange={handleChange} placeholder="Email" className="p-2 border rounded" />
-          <input name="password" value={form.password} onChange={handleChange} placeholder="Password" type="password" className="p-2 border rounded" />
+          <input name="name" value={form.name} onChange={handleChange} placeholder="Name" className="p-2 border rounded bg-slate-50" />
+          <input name="username" value={form.username} onChange={handleChange} placeholder="Username" className="p-2 border rounded bg-slate-50" />
+          <input name="email" value={form.email} onChange={handleChange} placeholder="Email" className="p-2 border rounded bg-slate-50" />
+          <input name="password" value={form.password} onChange={handleChange} placeholder="Password" type="password" className="p-2 border rounded bg-slate-50" />
 
-          <select name="role_id" value={form.role_id} onChange={handleChange} className="p-2 border rounded">
+          <select name="role_id" value={form.role_id} onChange={handleChange} className="p-2 border rounded bg-slate-50">
             <option value="">Role</option>
             <option value="1">Admin</option>
             <option value="2">Teacher</option>
@@ -184,14 +184,14 @@ export default function UsersPage() {
           placeholder="Search user..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="p-2 border rounded w-1/3"
+          className="p-2 border rounded w-1/3 bg-white"
         />
 
         {/* FILTER ROLE */}
         <select
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
-          className="p-2 border rounded"
+          className="p-2 border rounded bg-white"
         >
           <option value="">All Roles</option>
           <option value="admin">Admin</option>
@@ -276,7 +276,7 @@ export default function UsersPage() {
                       u.class_name && editingClassUserId !== u.id ? (
                         <span
                           onClick={() => setEditingClassUserId(u.id)}
-                          className="cursor-pointer text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded"
+                          className="cursor-pointer border p-1 rounded text-sm bg-blue-100 text-blue-600"
                         >
                           {u.class_name}
                         </span>
@@ -299,9 +299,8 @@ export default function UsersPage() {
                               console.log(err.response?.data);
                             }
                           }}
-                          className="border p-1 rounded text-sm"
+                          className="border p-1 rounded text-sm bg-blue-100 text-blue-600"
                         >
-                          <option value="">Select Class</option>
 
                           {classes.map((c) => (
                             <option key={c.id} value={c.id}>

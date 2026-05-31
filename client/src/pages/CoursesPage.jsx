@@ -198,20 +198,20 @@ export default function CoursesPage() {
               placeholder="Title"
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="p-2 border rounded"
+              className="p-2 border rounded bg-slate-50 focus:ring-2 focus:ring-blue-500"
             />
 
             <input
               placeholder="Description"
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="p-2 border rounded"
+              className="p-2 border rounded bg-slate-50 focus:ring-2 focus:ring-blue-500"
             />
 
             <select
               value={form.teacher_id}
               onChange={(e) => setForm({ ...form, teacher_id: e.target.value })}
-              className="p-2 border rounded"
+              className="p-2 border rounded bg-slate-50 focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Select Teacher</option>
               {teachers.map((t) => (
@@ -236,14 +236,14 @@ export default function CoursesPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="p-2 border rounded w-1/3
-          bg-gray-50 focus:ring-2 focus:ring-blue-500"
+          bg-white focus:ring-2 focus:ring-blue-500"
         />
 
         <select
           value={teacherFilter}
           onChange={(e) => setTeacherFilter(e.target.value)}
           className="p-2 border rounded
-          bg-gray-50 focus:ring-2 focus:ring-blue-500"
+          bg-white focus:ring-2 focus:ring-blue-500"
         >
           <option value="">All Teachers</option>
           {teachers.map((t) => (

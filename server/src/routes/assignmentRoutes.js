@@ -206,6 +206,174 @@ router.get(
   }
 );
 
+router.get(
+  '/:id/reminders',
+  authMiddleware,
+  roleMiddleware(['student']),
+  async (req, res) => {
+
+    const assignmentId = req.params.id;
+    const studentId = req.user.id;
+
+    try {
+
+      const assignment =
+        await pool.query(
+          `
+          SELECT due_date
+          FROM assignments
+          WHERE id = $1
+          `,
+          [assignmentId]
+        );
+
+      const dueDate =
+        new Date(
+          assignment.rows[0].due_date
+        );
+
+      const result =
+        await pool.query(
+          `
+          SELECT reminder_time
+          FROM assignment_reminders
+          WHERE assignment_id = $1
+          AND student_id = $2
+          `,
+          [assignmentId, studentId]
+        );
+
+      const reminders =
+        result.rows.map(r => {
+
+          const diff =
+            dueDate - new Date(r.reminder_time);
+
+          const days =
+            diff / (1000*60*60*24);
+
+          return Math.round(days);
+        });
+
+      res.json({ reminders });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        message: 'Error fetching reminders'
+      });
+
+    }
+
+  }
+);
+
+router.post(
+  '/:id/reminders',
+  authMiddleware,
+  roleMiddleware(['student']),
+  async (req, res) => {
+
+    const assignmentId =
+      req.params.id;
+
+    const studentId =
+      req.user.id;
+
+    const { reminders } =
+      req.body;
+
+    try {
+
+      const assignment =
+        await pool.query(
+          `
+          SELECT due_date
+          FROM assignments
+          WHERE id = $1
+          `,
+          [assignmentId]
+        );
+
+      const dueDate =
+        new Date(
+          assignment.rows[0].due_date
+        );
+
+      // Delete Existing Reminders
+      await pool.query(
+        `
+        DELETE
+        FROM assignment_reminders
+        WHERE assignment_id = $1
+        AND student_id = $2
+        `,
+        [assignmentId, studentId]
+      );
+
+      const skipped = [];
+      // Insert New Reminders
+      for (const day of reminders) {
+
+        const reminderTime =
+          new Date(dueDate);
+
+        reminderTime.setHours(
+          reminderTime.getHours() -
+          day * 24
+        );
+
+      if (
+        reminderTime <= new Date()
+      ) {
+
+        skipped.push(day);
+
+        continue;
+
+      }
+
+        await pool.query(
+          `
+          INSERT INTO assignment_reminders
+          (
+            assignment_id,
+            student_id,
+            reminder_time
+          )
+          VALUES ($1,$2,$3)
+          `,
+          [
+            assignmentId,
+            studentId,
+            reminderTime
+          ]
+        );
+
+      }
+
+      res.json({
+        message:
+          'Reminder saved',
+          skipped
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        message:
+          'Error saving reminder'
+      });
+
+    }
+
+  }
+);
+
 // ==============================
 // GET PENDING REQUEST COUNT
 // ==============================
@@ -355,7 +523,7 @@ router.post(
     const studentId = req.user.id;
 
     try {
-      // ambil rules assignment
+      // Get Assignment Rules
       const assign = await pool.query(
         `SELECT allowed_formats, max_file_size, due_date
          FROM assignments
@@ -369,7 +537,7 @@ router.post(
 
       const { allowed_formats, max_file_size } = assign.rows[0];
 
-      // simpan ke req biar bisa dipakai multer & next handler
+      // Save rules to req for later use in upload middleware
       req.allowedFormats = allowed_formats || [];
       req.maxSizeMB = max_file_size || 5;
 
@@ -387,7 +555,7 @@ router.post(
       if (existing.rows.length) {
         const submissionId = existing.rows[0].id;
 
-        // LOCK kalau sudah graded
+        // LOCK if already graded
 if (existing.rows[0].status === 'graded') {
   return res.status(403).json({
     message: 'Submission finalized after grading'
@@ -481,6 +649,16 @@ if (existing.rows[0].status === 'graded') {
            (assignment_id, student_id, file_url, submitted_at)
            VALUES ($1,$2,$3,NOW())`,
           [assignmentId, studentId, fileUrl]
+        );
+
+        await pool.query(
+          `
+          UPDATE assignment_reminders
+          SET is_sent = true
+          WHERE assignment_id = $1
+          AND student_id = $2
+          `,
+          [assignmentId, studentId]
         );
 
         return res.json({ message: 'Submitted' });

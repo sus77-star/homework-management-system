@@ -28,6 +28,113 @@ const [submissions, setSubmissions] = useState([]);
 const [requests, setRequests] = useState([]);
 const [questions, setQuestions] = useState([]);
 
+const [reminders, setReminders] =
+  useState([]);
+
+const [customDay, setCustomDay] =
+  useState('');
+
+const fetchReminders = async () => {
+
+  const res =
+    await api.get(
+      `/assignments/${id}/reminders`
+    );
+
+  const data =
+    res.data.reminders;
+
+  setReminders(
+    data.filter(
+      d => [1,3,7].includes(
+        Math.round(d)
+      )
+    )
+  );
+
+  const custom =
+    data.find(
+      d =>
+        ![1,3,7].includes(
+          Math.round(d)
+        )
+    );
+
+  if (custom) {
+
+    setCustomDay(
+      Math.round(custom)
+    );
+
+  } else {
+
+    setCustomDay('');
+
+  }
+
+};
+
+const saveReminders = async () => {
+
+  try {
+
+    let finalReminders =
+      [...reminders];
+
+    // custom day
+    if (
+      customDay &&
+      Number(customDay) > 0
+    ) {
+
+      finalReminders.push(
+        Number(customDay)
+      );
+
+    }
+
+    // remove duplicate
+    finalReminders =
+      [...new Set(finalReminders)];
+
+    const res =
+      await api.post(
+        `/assignments/${id}/reminders`,
+        {
+          reminders:
+            finalReminders
+        }
+      );
+
+    toast.success(
+      res.data.message
+    );
+
+    if (
+      res.data.skipped?.length
+    ) {
+
+      toast(
+        `Cannot create ${res.data.skipped.join(', ')} day reminder because deadline is too close.`
+      );
+
+    }
+    setCustomDay('');
+
+    await fetchReminders();
+
+  } catch (err) {
+
+    console.error(err);
+
+    toast.error(
+      'Failed to save reminder'
+    );
+
+  }
+
+};
+
 const [quizAnswers, setQuizAnswers] =
   useState([]);
 
@@ -198,6 +305,7 @@ const fetchAll = async () => {
     await Promise.all([
 
       fetchSubmissions(),
+      fetchReminders(),
 
       assignmentData.type === 'upload'
         ? fetchMySubmission()
@@ -1214,6 +1322,221 @@ for (const q of questions) {
       </div>
     )}
 
+{role === 'student' &&
+ !isExpired &&
+ !mySubmission && (
+
+<div
+  className="
+    mt-6
+    border-t
+    pt-5
+  "
+>
+
+  {/* HEADER */}
+  <div className="mb-4">
+
+    <h3
+      className="
+        text-lg
+        font-semibold
+        text-blue-700
+      "
+    >
+      Reminder Settings
+    </h3>
+
+    <p
+      className="
+        text-sm
+        text-blue-500
+        mt-1
+      "
+    >
+      Stay on track with your assignment deadline
+    </p>
+
+  </div>
+
+  {/* PRESET BUTTONS */}
+  <div
+    className="
+      flex
+      gap-3
+      flex-wrap
+      justify-center
+    "
+  >
+
+    {[7,3,1].map(day => {
+
+      const selected =
+        reminders.includes(day);
+
+      return (
+
+        <button
+          key={day}
+          type="button"
+          onClick={() => {
+
+            if (selected) {
+
+              setReminders(
+                reminders.filter(
+                  r => r !== day
+                )
+              );
+
+            } else {
+
+              setReminders([
+                ...reminders,
+                day
+              ]);
+
+            }
+
+          }}
+
+          className={`
+            px-4
+            py-2
+
+            rounded-xl
+
+            text-sm
+            font-medium
+
+            transition-all
+
+            ${
+              selected
+                ? `
+                  bg-blue-600
+                  text-white
+                `
+                : `
+                  bg-blue-50
+                  text-blue-700
+                  border
+                  border-blue-200
+                  hover:bg-blue-100
+                `
+            }
+          `}
+        >
+          {day} Days
+        </button>
+
+      );
+
+    })}
+
+  </div>
+
+  {/* CUSTOM */}
+  <div
+    className="
+      mt-6
+      flex
+      flex-col
+      items-center
+    "
+  >
+
+    <label
+      className="
+        text-sm
+        font-medium
+        text-blue-700
+        mb-2
+        
+      "
+    >
+      Custom Reminder
+    </label>
+
+    <input
+      type="number"
+      min="1"
+      value={customDay}
+      onChange={(e) =>
+        setCustomDay(
+          e.target.value
+        )
+      }
+      placeholder="5"
+      className="
+        w-28
+
+        text-center
+        font-semibold
+        bg-blue-50
+        border-2
+        border-blue-300
+        text-blue-700
+        rounded-xl
+        placeholder:text-blue-200
+        
+
+
+        px-3
+        py-2
+
+        focus:outline-none
+        focus:ring-2
+        focus:ring-blue-300
+      "
+    />
+
+    <span
+      className="
+        mt-2
+        text-sm
+        text-blue-500
+      "
+    >
+      days before deadline
+    </span>
+
+  </div>
+
+  {/* SAVE */}
+  <div
+    className="
+      flex
+      justify-center
+      mt-6
+    "
+  >
+
+    <button
+      onClick={saveReminders}
+      className="
+        bg-blue-600
+        hover:bg-blue-700
+
+        text-white
+        font-medium
+
+        px-5
+        py-2.5
+
+        rounded-xl
+
+        transition
+      "
+    >
+      Save Reminder
+    </button>
+
+  </div>
+
+</div>
+
+)}
 
   {/* MATERIAL FILE */}
   {assignment.file_url && (

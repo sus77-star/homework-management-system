@@ -99,7 +99,7 @@ export default function Navbar() {
         {/* =========================
             NOTIFICATION ICON
         ========================= */}
-        {user.role === 'teacher' && (
+        {(user.role === 'teacher' || user.role === 'student') && (
           <button
             onClick={(e) => {
               e.stopPropagation();

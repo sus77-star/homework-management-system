@@ -286,3 +286,49 @@ CREATE TABLE student_answers (
     submitted_at TIMESTAMP
     DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE assignment_reminders (
+    id SERIAL PRIMARY KEY,
+
+    assignment_id INTEGER NOT NULL
+    REFERENCES assignments(id)
+    ON DELETE CASCADE,
+
+    student_id INTEGER NOT NULL
+    REFERENCES users(id)
+    ON DELETE CASCADE,
+
+    reminder_time TIMESTAMP NOT NULL,
+
+    is_sent BOOLEAN DEFAULT FALSE,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE notifications (
+    id SERIAL PRIMARY KEY,
+
+    user_id INTEGER
+    REFERENCES users(id)
+    ON DELETE CASCADE,
+
+    title VARCHAR(255),
+
+    message TEXT,
+
+    type VARCHAR(50),
+
+    reference_id INTEGER,
+
+    is_read BOOLEAN DEFAULT FALSE,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE assignment_reminders
+ADD CONSTRAINT unique_reminder
+UNIQUE (
+    assignment_id,
+    student_id,
+    reminder_time
+);

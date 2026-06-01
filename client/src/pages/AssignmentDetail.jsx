@@ -11,7 +11,11 @@ import {
   CheckCircle,
   AlertCircle,
   XCircle,
-  Clock3
+  Clock3,
+  ChevronDown,
+  ChevronRight,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 
 export default function AssignmentDetail() {
@@ -114,6 +118,16 @@ const waitingForGrade =
 
   const [expandedStudent, setExpandedStudent] =
   useState(null);
+
+  const [expandedQuestions,
+    setExpandedQuestions] =
+    useState([]);
+
+  const [expandedAnalytics,
+    setExpandedAnalytics] =
+    useState([]);
+
+  
 // ==============================
 // INIT
 // ==============================
@@ -594,6 +608,94 @@ const handleEditQuestion = (q) => {
   setShowQuestionModal(true);
 };
 
+const handleDeleteQuestion = (
+  questionId
+) => {
+
+  toast((t) => (
+
+    <div className="
+      flex flex-col gap-3
+    ">
+
+      <p className="
+        text-sm font-medium
+      ">
+        Delete this question?
+      </p>
+      <p className="text-xs text-gray-500">
+        This action cannot be undone
+      </p>
+
+      <div className="
+        flex justify-end gap-2
+      ">
+
+        <button
+          onClick={() =>
+            toast.dismiss(t.id)
+          }
+          className="
+            px-3 py-1
+            rounded-lg
+            bg-gray-100
+            hover:bg-gray-200
+          "
+        >
+          Cancel
+        </button>
+
+        <button
+          onClick={async () => {
+
+            toast.dismiss(t.id);
+
+            try {
+
+              const res =
+                await api.delete(
+                  `/assignments/questions/${questionId}`
+                );
+
+              toast.success(
+                res.data.message
+              );
+
+              fetchQuestions();
+
+            } catch (err) {
+
+              console.error(err);
+
+              toast.error(
+                err.response?.data?.message ||
+                'Delete failed'
+              );
+
+            }
+
+          }}
+          className="
+            px-3 py-1
+            rounded-lg
+            bg-red-600
+            hover:bg-red-700
+            text-white
+          "
+        >
+          Delete
+        </button>
+
+      </div>
+
+    </div>
+
+  ));
+
+};
+
+
+
       const handleSaveQuestion = async () => {
 
         try {
@@ -606,6 +708,26 @@ const handleEditQuestion = (q) => {
           return toast.error(
             'Points must be greater than 0'
           );
+        }
+
+        if (
+          questionForm.question_type ===
+          'single_choice'
+        ) {
+
+          const hasEmptyOption =
+            questionForm.options.some(
+              opt => opt.trim() === ''
+            );
+
+          if (hasEmptyOption) {
+
+            return toast.error(
+              'All options must be filled'
+            );
+
+          }
+
         }
         
         const currentTotal =
@@ -818,6 +940,13 @@ for (const q of questions) {
   const isExpired =
     new Date(assignment.due_date) < new Date();
 
+  const totalQuizPoints =
+    questions.reduce(
+      (sum, q) =>
+        sum + Number(q.points),
+      0
+    );
+
   return (
     <Layout>
       {/* ======================
@@ -1022,13 +1151,44 @@ for (const q of questions) {
               Manage quiz questions and choices
             </p>
 
+          {quizLocked && (
+
+            <p className="
+              text-xs
+              text-red-600
+              mt-2
+            ">
+              Quiz structure locked because students have submitted answers
+            </p>
+
+          )}
+
           </div>
 
           <button
             disabled={quizLocked}
-            onClick={() =>
-              setShowQuestionModal(true)
-            }
+            onClick={() => {
+
+              setEditingQuestion(null);
+
+              setQuestionForm({
+                question_text: '',
+                question_type: 'subjective',
+                points: 10,
+
+                options: [
+                  '',
+                  '',
+                  '',
+                  ''
+                ],
+
+                correct_index: 0
+              });
+
+              setShowQuestionModal(true);
+
+            }}
 
             className={`
               bg-blue-600
@@ -1273,11 +1433,64 @@ for (const q of questions) {
       mb-5
     ">
 
+    <div>
+
       <h2 className="
-        text-xl font-bold text-gray-800 
+        text-xl font-bold text-gray-800
       ">
         Questions
       </h2>
+
+      <p className="
+        text-sm text-gray-500
+        mt-1
+      ">
+        {questions.length} Questions 
+        {' '}
+        {totalQuizPoints}/100 Points
+      </p>
+
+    </div>
+
+    {role === 'teacher' && (
+
+      <div className="flex gap-2">
+
+        <button
+          onClick={() =>
+            setExpandedQuestions(
+              questions.map(q => q.id)
+            )
+          }
+          className="
+            px-3 py-1
+            text-sm
+            rounded-lg
+            bg-gray-100
+            hover:bg-gray-200
+          "
+        >
+          Expand All
+        </button>
+
+        <button
+          onClick={() =>
+            setExpandedQuestions([])
+          }
+          className="
+            px-3 py-1
+            text-sm
+            rounded-lg
+            bg-gray-100
+            hover:bg-gray-200
+          "
+        >
+          Collapse All
+        </button>
+
+      </div>
+
+    )}
 
       {role === 'student' &&
       quizSubmitted &&
@@ -1291,17 +1504,39 @@ for (const q of questions) {
         ">
 
           <p className="
-            text-xs text-gray-500
+            text-x font-medium
+            text-blue-700  
           ">
             Quiz Result
           </p>
 
-          <p className="
-            text-xl font-bold
-            text-blue-600
-          ">
-            {quizReview.total_score}/100
-          </p>
+          {waitingForGrade ? (
+
+            <>
+              <p className="
+                text-lg font-semibold
+                text-yellow-600
+              ">
+                Pending Review
+              </p>
+
+              <p className="
+                text-xs text-gray-500
+              ">
+                Some subjective questions are still being graded by the teacher
+              </p>
+            </>
+
+          ) : (
+
+            <p className="
+              text-xl font-bold
+              text-blue-600
+            ">
+              {quizReview.total_score}/100
+            </p>
+
+          )}
 
         </div>
 
@@ -1322,10 +1557,13 @@ for (const q of questions) {
         
     {questions.map((q, index) => {
 
-      const review =
-        quizReview?.questions?.find(
-          r => r.id === q.id
-        );
+    const review =
+      quizReview?.questions?.find(
+        r => r.id === q.id
+      );
+
+    const isQuestionOpen =
+      expandedQuestions.includes(q.id);
 
       return (
 
@@ -1333,72 +1571,136 @@ for (const q of questions) {
             key={q.id}
             className="
               border rounded-xl
-              p-5
+              overflow-hidden
             "
           >
+{/* HEADER */}
+<div
+  onClick={() => {
 
-            {/* HEADER */}
-            <div className="
-              flex items-start
-              justify-between
-              gap-4
-            ">
+    if (isQuestionOpen) {
 
-            <div className="
-              flex items-center
-              justify-between
-              gap-4
-            ">
+      setExpandedQuestions(
+        expandedQuestions.filter(
+          id => id !== q.id
+        )
+      );
 
-              <h3 className="
-                font-semibold
-                text-gray-800
-                flex-1
-              ">
-                Question {index + 1}
-              </h3>
-              
-              {role === 'teacher' && (
+    } else {
 
-                <button
-                  onClick={() =>
-                    handleEditQuestion(q)
-                  }
+      setExpandedQuestions([
+        ...expandedQuestions,
+        q.id
+      ]);
 
-                  className="
-                    text-sm
-                    bg-yellow-500
-                    hover:bg-yellow-600
-                    text-white
-                    px-3 py-1
-                    rounded-lg
-                    transition
-                  "
-                >
-                  Edit
-                </button>
-              )}
+    }
 
-            </div>
+  }}
+  className="
+    flex items-center
+    justify-between
+    p-5
+    cursor-pointer
+    hover:bg-gray-50
+    transition
+  "
+>
 
-            <span className="
-              bg-blue-100
-              text-blue-700
-              px-3 py-1
-              rounded-full
-              text-xs font-medium
-            ">
-          {role === 'student' && quizSubmitted
-            ? `${
-                review?.score != null
-                  ? Math.round(review.score)
-                  : 'Pending' 
-              }/${q.points}`
-            : `${q.points} pts`
-          }
-            </span>
+    <div className="
+      flex items-center
+      gap-3
+    ">
 
-            </div>
+      {isQuestionOpen ? (
+        <ChevronDown size={18}/>
+      ) : (
+        <ChevronRight size={18}/>
+      )}
+
+      <div>
+
+        <h3 className="
+          font-semibold
+          text-gray-800
+        ">
+          Question {index + 1}
+        </h3>
+
+        <p className="
+          text-xs
+          text-gray-500
+        ">
+          {q.question_type === 'subjective'
+            ? 'Subjective'
+            : 'Single Choice'}
+        </p>
+
+      </div>
+
+    </div>
+
+    <div className="
+      flex items-center
+      gap-3
+    ">
+
+      <span className="
+        bg-blue-100
+        text-blue-700
+        px-3 py-1
+        rounded-full
+        text-xs font-medium
+      ">
+        {q.points} pts
+      </span>
+
+      {role === 'teacher' &&
+      !quizLocked && (
+
+        <>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEditQuestion(q);
+            }}
+            className="
+              p-2
+              rounded-lg
+              hover:bg-yellow-100
+              text-yellow-600
+            "
+          >
+            <Pencil size={16}/>
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteQuestion(q.id);
+            }}
+            className="
+              p-2
+              rounded-lg
+              hover:bg-red-100
+              text-red-600
+            "
+          >
+            <Trash2 size={16}/>
+          </button>
+        </>
+
+      )}
+
+    </div>
+
+</div>
+
+{isQuestionOpen && (
+
+  <div className="
+    p-5
+    border-t
+  ">
 
 {/* ======================
     STUDENT QUIZ FORM
@@ -1662,7 +1964,9 @@ for (const q of questions) {
 
 )}
            
+      </div>
 
+    )}
           </div>
         );})}
 
@@ -2648,6 +2952,7 @@ return (
   </>
 )}
 
+
 {/* ======================
     QUIZ ANALYTICS
 ====================== */}
@@ -2659,12 +2964,58 @@ return (
     shadow p-6 mb-6
   ">
 
-    <h2 className="
-      text-xl font-bold
-      text-gray-800 mb-5
+    <div className="
+      flex items-center
+      justify-between
+      mb-5
     ">
-      Quiz Analytics
-    </h2>
+
+      <h2 className="
+        text-xl font-bold
+        text-gray-800
+      ">
+        Quiz Analytics
+      </h2>
+
+      <div className="flex gap-2">
+
+        <button
+          onClick={() =>
+            setExpandedAnalytics(
+              quizAnalytics.map(
+                q => q.question_id
+              )
+            )
+          }
+          className="
+            px-3 py-1
+            text-sm
+            rounded-lg
+            bg-gray-100
+            hover:bg-gray-200
+          "
+        >
+          Expand All
+        </button>
+
+        <button
+          onClick={() =>
+            setExpandedAnalytics([])
+          }
+          className="
+            px-3 py-1
+            text-sm
+            rounded-lg
+            bg-gray-100
+            hover:bg-gray-200
+          "
+        >
+          Collapse All
+        </button>
+
+      </div>
+
+    </div>
 
     {quizAnalytics.length === 0 ? (
 
@@ -2678,45 +3029,119 @@ return (
 
       {[...quizAnalytics]
         .sort((a, b) => a.question_id - b.question_id)
-        .map((q, index) => (
+        .map((q, index) => {
+
+        const isAnalyticsOpen =
+          expandedAnalytics.includes(
+            q.question_id
+          );
+
+        return (
 
           <div
             key={q.question_id}
             className="
               border rounded-xl
-              p-5
+              overflow-hidden
             "
           >
 
             {/* QUESTION */}
             
-            <div className="mb-5">
+            <div
+              onClick={() => {
 
-              <h3 className="
-                font-semibold
-                text-gray-800
-              ">
-                Question {index + 1}
-              </h3>
+                if (isAnalyticsOpen) {
 
-              <p className="
-                text-gray-600
-                mt-1
-              ">
-                {q.question_text}
-              </p>
+                  setExpandedAnalytics(
+                    expandedAnalytics.filter(
+                      id => id !== q.question_id
+                    )
+                  );
 
-              <p className="
-                text-sm text-gray-500 mt-2
+                } else {
+
+                  setExpandedAnalytics([
+                    ...expandedAnalytics,
+                    q.question_id
+                  ]);
+
+                }
+
+              }}
+              className="
+                flex items-center
+                justify-between
+                p-5
+                cursor-pointer
+                hover:bg-gray-50
+              "
+            >
+
+              <div className="
+                flex items-center
+                gap-3
               ">
-                Total Answers:
-                {' '}
-                {q.total_answers}
-              </p>
+
+                {isAnalyticsOpen ? (
+                  <ChevronDown size={18}/>
+                ) : (
+                  <ChevronRight size={18}/>
+                )}
+
+              <div>
+
+                <h3 className="
+                  font-semibold
+                  text-gray-800
+                ">
+                  Question {index + 1}
+                </h3>
+
+
+
+                <p className="
+                  text-xs
+                  text-gray-500
+                  mt-1
+                ">
+                  {q.question_type === 'subjective'
+                    ? 'Subjective'
+                    : 'Single Choice'}
+                </p>
+
+              </div>
+
+              </div>
+
+              <span className="
+                bg-blue-100
+                text-blue-700
+                px-3 py-1
+                rounded-full
+                text-xs font-medium
+              ">
+                {q.points} pts
+              </span>
 
             </div>
 
             {/* OPTIONS */}
+            {isAnalyticsOpen && (
+
+            <div className="
+              p-5
+              border-t
+            ">
+
+            <p className="
+              font-medium
+              text-gray-800
+              mb-4
+            ">
+              {q.question_text}
+            </p>
+            
             <div className="space-y-4">
 
               {q.question_type === 'single_choice' ? (
@@ -2836,18 +3261,20 @@ return (
                 ))
 
               ) : (
-
-                <div
-                  className="
-                    bg-blue-50
-                    border
-                    border-blue-200
-                    rounded-xl
-                    p-4
-                  "
-                >
+                
+                    <div
+                      className="
+                        bg-blue-50
+                        border
+                        border-blue-200
+                        rounded-xl
+                        p-4
+                      "
+                    >
+                  
 
                   <div className="grid grid-cols-2 gap-4">
+                    
 
                     <div>
                       <p className="text-sm text-gray-500">
@@ -2872,13 +3299,22 @@ return (
                   </div>
 
                 </div>
+                
+
+                
 
               )}
 
             </div>
 
           </div>
-        ))}
+            )}
+
+          </div>
+
+        );
+
+      })}
 
       </div>
     )}
@@ -2924,9 +3360,28 @@ return (
               </h2>
 
               <button
-                onClick={() =>
-                  setShowQuestionModal(false)
-                }
+                onClick={() => {
+
+                  setShowQuestionModal(false);
+
+                  setEditingQuestion(null);
+
+                  setQuestionForm({
+                    question_text: '',
+                    question_type: 'subjective',
+                    points: 10,
+
+                    options: [
+                      '',
+                      '',
+                      '',
+                      ''
+                    ],
+
+                    correct_index: 0
+                  });
+
+                }}
 
                 className="
                   text-gray-500
@@ -3094,9 +3549,28 @@ return (
             ">
 
               <button
-                onClick={() =>
-                  setShowQuestionModal(false)
-                }
+                onClick={() => {
+
+                  setShowQuestionModal(false);
+
+                  setEditingQuestion(null);
+
+                  setQuestionForm({
+                    question_text: '',
+                    question_type: 'subjective',
+                    points: 10,
+
+                    options: [
+                      '',
+                      '',
+                      '',
+                      ''
+                    ],
+
+                    correct_index: 0
+                  });
+
+                }}
 
                 className="
                   bg-gray-50

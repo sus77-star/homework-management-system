@@ -1428,7 +1428,8 @@ router.get(
           SELECT
             id,
             question_text,
-            question_type
+            question_type,
+            points
           FROM questions
           WHERE assignment_id = $1
           `,
@@ -1508,6 +1509,7 @@ router.get(
           question_id: q.id,
           question_text: q.question_text,
           question_type: 'single_choice',
+          points: q.points,
           total_answers: total,
           options
         });
@@ -1530,6 +1532,7 @@ router.get(
             question_id: q.id,
             question_text: q.question_text,
             question_type: 'subjective',
+            points: q.points,
 
             total_answers:
               answerResult.rows[0].total_answers,
@@ -1654,9 +1657,11 @@ try {
     const oldQuestion =
       await pool.query(
         `
-          SELECT question_type
-          FROM questions
-          WHERE id = $1
+        SELECT
+          question_type,
+          points
+        FROM questions
+        WHERE id = $1
         `,
         [questionId]
       );
@@ -1665,19 +1670,55 @@ try {
       oldQuestion.rows[0]
         ?.question_type;
 
-    const changingType =
-      oldType !== question_type;
+    const oldPoints =
+      Number(
+        oldQuestion.rows[0]
+          ?.points
+      );
 
+    // =========================
+    // BLOCK TYPE CHANGE
+    // =========================
     if (
-      changingType ||
-      question_type === 'single_choice'
+      oldType !== question_type
     ) {
 
       return res.status(403).json({
         message:
-          'Question structure cannot be modified after student submission'
+          'Question type cannot be changed after submission'
       });
+
     }
+
+    // =========================
+    // BLOCK POINT CHANGE
+    // =========================
+    if (
+      oldPoints !==
+      Number(points)
+    ) {
+
+      return res.status(403).json({
+        message:
+          'Question points cannot be changed after submission'
+      });
+
+    }
+
+    // =========================
+    // BLOCK ALL SINGLE CHOICE EDIT
+    // =========================
+    if (
+      oldType === 'single_choice'
+    ) {
+
+      return res.status(403).json({
+        message:
+          'Single choice question cannot be modified after submission'
+      });
+
+    }
+
   }
 
   // =========================
@@ -1897,6 +1938,80 @@ router.get(
       });
 
     }
+  }
+);
+
+router.delete(
+  '/questions/:questionId',
+  authMiddleware,
+  roleMiddleware(['teacher']),
+  async (req, res) => {
+
+    const { questionId } = req.params;
+
+    try {
+
+      // =========================
+      // CHECK STUDENT ANSWERS
+      // =========================
+      const answerCheck =
+        await pool.query(
+          `
+          SELECT sa.id
+          FROM student_answers sa
+          WHERE sa.question_id = $1
+          LIMIT 1
+          `,
+          [questionId]
+        );
+
+      if (answerCheck.rows.length) {
+
+        return res.status(403).json({
+          message:
+            'Cannot delete question after student submission'
+        });
+
+      }
+
+      // =========================
+      // DELETE OPTIONS
+      // =========================
+      await pool.query(
+        `
+        DELETE FROM question_choices
+        WHERE question_id = $1
+        `,
+        [questionId]
+      );
+
+      // =========================
+      // DELETE QUESTION
+      // =========================
+      await pool.query(
+        `
+        DELETE FROM questions
+        WHERE id = $1
+        `,
+        [questionId]
+      );
+
+      res.json({
+        message:
+          'Question deleted successfully'
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        message:
+          'Error deleting question'
+      });
+
+    }
+
   }
 );
 module.exports = router;

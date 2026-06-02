@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import api from '../services/api';
 import { jwtDecode } from 'jwt-decode';
@@ -7,15 +7,17 @@ import toast from 'react-hot-toast';
 import {
   FileText,
   Download,
+  ArrowLeft,
   Clock,
   CheckCircle,
   AlertCircle,
   Upload
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+
 
 export default function CourseDetail() {
   const { id } = useParams();
+  
 
   const [course, setCourse] = useState(null);
   const [assignments, setAssignments] = useState([]);
@@ -28,6 +30,16 @@ export default function CourseDetail() {
   const [maxSize, setMaxSize] = useState(5);
   const navigate = useNavigate();
 
+  const [currentPage, setCurrentPage] =
+    useState(1);
+
+  const [sortBy, setSortBy] =
+    useState('newest');
+
+  const [search, setSearch] =
+    useState('');
+
+  const itemsPerPage = 5;
 
   const [form, setForm] = useState({
     title: '',
@@ -73,21 +85,25 @@ export default function CourseDetail() {
     const now = new Date();
     const deadline = new Date(assignment.due_date);
 
-    if (now > deadline) return 'late';
-    return 'pending';
+    if (now > deadline) return 'closed';
+    return 'open';
   };
 
   const renderStatus = (status) => {
-    if (status === 'late')
+
+    if (status === 'closed') {
       return (
-        <span className="flex items-center gap-1 text-red-600 text-xs">
-          <AlertCircle size={14} /> Late
+        <span className="bg-red-100 text-red-700 rounded-full px-2 py-1 text-xs flex items-center gap-1">
+          <AlertCircle size={14} />
+          Closed
         </span>
       );
+    }
 
     return (
-      <span className="flex items-center gap-1 text-gray-500 text-xs">
-        <Clock size={14} /> Pending
+      <span className="bg-green-100 text-green-700 rounded-full px-2 py-1 text-xs flex items-center gap-1">
+        <CheckCircle size={14} />
+        Open
       </span>
     );
   };
@@ -169,7 +185,9 @@ export default function CourseDetail() {
       new Date(assignment.due_date) < new Date();
 
     if (isExpired) {
-      return alert('Deadline sudah lewat');
+      return toast.error(
+        'Deadline Passed'
+      );
     }
 
     const input = document.createElement('input');
@@ -188,7 +206,7 @@ export default function CourseDetail() {
         formData
       );
 
-      alert('Submitted');
+      toast.success('Submitted');
     };
   };
 
@@ -217,8 +235,84 @@ export default function CourseDetail() {
     loadSubmissions(selectedAssignment.id);
   };
 
+    const filteredAssignments =
+      assignments.filter(a =>
+        a.title
+          .toLowerCase()
+          .includes(
+            search.toLowerCase()
+          )
+      );
+
+    const sortedAssignments =
+      [...filteredAssignments]
+        .sort((a, b) => {
+
+          if (sortBy === 'newest') {
+            return new Date(b.created_at)
+              - new Date(a.created_at);
+          }
+
+          if (sortBy === 'oldest') {
+            return new Date(a.created_at)
+              - new Date(b.created_at);
+          }
+
+          if (sortBy === 'deadline') {
+            return new Date(a.due_date)
+              - new Date(b.due_date);
+          }
+
+          if (sortBy === 'title') {
+            return a.title.localeCompare(
+              b.title
+            );
+          }
+
+          return 0;
+        });
+
+    const totalPages =
+      Math.ceil(
+        sortedAssignments.length /
+        itemsPerPage
+      );
+
+    const startIndex =
+      (currentPage - 1) *
+      itemsPerPage;
+
+    const paginatedAssignments =
+      sortedAssignments.slice(
+        startIndex,
+        startIndex + itemsPerPage
+      );        
+
   return (
     <Layout>
+
+    <button
+      onClick={() => navigate(-1)}
+      className="
+        fixed
+        bottom-6
+        right-6
+        z-50
+
+        bg-blue-600
+        hover:bg-blue-700
+
+        text-white
+        p-3
+
+        rounded-full
+        shadow-lg
+        transition
+      "
+    >
+      <ArrowLeft size={22} />
+    </button>
+
       <h2 className="text-xl font-semibold mb-2">
         {course?.title}
       </h2>
@@ -227,10 +321,147 @@ export default function CourseDetail() {
         {course?.description}
       </p>
 
+<div className="mb-6">
+
+  <h3 className="font-semibold text-gray-700 mb-4">
+    Assignment Information
+  </h3>
+
+  {/* Statistics */}
+  <div
+    className="
+      grid
+      grid-cols-2
+      md:grid-cols-3
+      gap-4
+      mb-6
+    "
+  >
+    <div className="bg-white p-4 rounded-xl shadow">
+      <p className="text-sm text-gray-500">
+        Total
+      </p>
+
+      <p className="text-2xl font-bold">
+        {assignments.length}
+      </p>
+    </div>
+
+    <div className="bg-white p-4 rounded-xl shadow">
+      <p className="text-sm text-gray-500">
+        Open
+      </p>
+
+      <p className="text-2xl font-bold text-green-600">
+        {
+          assignments.filter(
+            a => getStatus(a) === 'open'
+          ).length
+        }
+      </p>
+    </div>
+
+    <div className="bg-white p-4 rounded-xl shadow">
+      <p className="text-sm text-gray-500">
+        Closed
+      </p>
+
+      <p className="text-2xl font-bold text-red-600">
+        {
+          assignments.filter(
+            a => getStatus(a) === 'closed'
+          ).length
+        }
+      </p>
+    </div>
+  </div>
+
+  {/* Grading Scale */}
+  <div>
+
+    <h3 className="font-semibold text-gray-700 mb-4">
+      Grading Scale
+    </h3>
+
+    <div
+      className="
+        grid
+        grid-cols-2
+        md:grid-cols-6
+        gap-4
+      "
+    >
+
+      <div className="bg-white p-4 rounded-xl shadow text-center">
+        <p className="text-2xl font-bold text-green-600">
+          A
+        </p>
+
+        <p className="text-xs text-gray-500">
+          90 - 100
+        </p>
+      </div>
+
+      <div className="bg-white p-4 rounded-xl shadow text-center">
+        <p className="text-2xl font-bold text-green-500">
+          A-
+        </p>
+
+        <p className="text-xs text-gray-500">
+          85 - 89
+        </p>
+      </div>
+
+      <div className="bg-white p-4 rounded-xl shadow text-center">
+        <p className="text-2xl font-bold text-blue-600">
+          B+
+        </p>
+
+        <p className="text-xs text-gray-500">
+          80 - 84
+        </p>
+      </div>
+
+      <div className="bg-white p-4 rounded-xl shadow text-center">
+        <p className="text-2xl font-bold text-blue-500">
+          B
+        </p>
+
+        <p className="text-xs text-gray-500">
+          75 - 79
+        </p>
+      </div>
+
+      <div className="bg-white p-4 rounded-xl shadow text-center">
+        <p className="text-2xl font-bold text-yellow-600">
+          B-
+        </p>
+
+        <p className="text-xs text-gray-500">
+          70 - 74
+        </p>
+      </div>
+
+      <div className="bg-white p-4 rounded-xl shadow text-center">
+        <p className="text-2xl font-bold text-red-600">
+          C
+        </p>
+
+        <p className="text-xs text-gray-500">
+          Below 70
+        </p>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
       {/* CREATE */}
       {role === 'teacher' && (
         <div className="bg-white p-4 rounded-xl shadow mb-6 space-y-2">
-          <h3 className="font-semibold flex items-center gap-2">
+          <h3 className="font-semibold flex items-center gap-2 text-gray-700 mb-4 ">
             <Upload size={16} /> Create Assignment
           </h3>
 
@@ -345,18 +576,70 @@ export default function CourseDetail() {
       )}
 
       {/* LIST */}
-      <div className="bg-white rounded-xl shadow">
-        <div className="p-4 border-b font-semibold">
-          Assignments
-        </div>
+<div className="bg-white rounded-xl shadow">
+<div
+  className="
+    p-4 border-b
+    flex flex-col md:flex-row
+    gap-3
+    justify-between
+  "
+>
+  <input
+    type="text"
+    placeholder="Search assignment..."
+    value={search}
+    onChange={(e) => {
+      setSearch(e.target.value);
+      setCurrentPage(1);
+    }}
+    className="
+      border rounded-lg
+      px-3 py-2
+      flex-1
+    bg-gray-50 focus:ring-2 focus:ring-blue-500
+
+    "
+  />
+
+  <select
+    value={sortBy}
+    onChange={(e) => {
+      setSortBy(e.target.value);
+      setCurrentPage(1);
+    }}
+    className="
+      border rounded-lg
+      px-3 py-2
+      bg-gray-50 focus:ring-2 focus:ring-blue-500
+    "
+  >
+    <option value="newest">
+      Newest
+    </option>
+
+    <option value="oldest">
+      Oldest
+    </option>
+
+    <option value="deadline">
+      Nearest Deadline
+    </option>
+
+    <option value="title">
+      A-Z
+    </option>
+  </select>
+</div>
 
         {assignments.length === 0 ? (
           <div className="p-6 text-center text-gray-400">
             No assignments yet
           </div>
         ) : (
+          <>
           <ul>
-            {assignments.map((a) => {
+            {paginatedAssignments.map((a) => {
               const status = getStatus(a);
 
               return (
@@ -401,6 +684,63 @@ export default function CourseDetail() {
               );
             })}
           </ul>
+
+{totalPages > 1 && (
+  <div
+    className="
+      flex
+      justify-center
+      items-center
+      gap-3
+      p-4
+    "
+  >
+  <button
+    disabled={currentPage === 1}
+    onClick={() =>
+      setCurrentPage(
+        currentPage - 1
+      )
+    }
+    className="
+      border
+      rounded
+      px-3
+      py-1
+      disabled:opacity-50
+    "
+  >
+    Prev
+  </button>
+
+  <span>
+    Page {currentPage} of{' '}
+    {totalPages}
+  </span>
+
+  <button
+    disabled={
+      currentPage === totalPages
+    }
+    onClick={() =>
+      setCurrentPage(
+        currentPage + 1
+      )
+    }
+    className="
+      border
+      rounded
+      px-3
+      py-1
+      disabled:opacity-50
+    "
+  >
+    Next
+  </button>
+</div>
+
+        )}
+        </>
         )}
       </div>
 
@@ -413,6 +753,8 @@ export default function CourseDetail() {
           Submit Assignment
         </button>
       )}
+
+
 
       {/* TEACHER */}
       {role === 'teacher' && selectedAssignment && (

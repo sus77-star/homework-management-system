@@ -7,6 +7,7 @@ const helmet = require('helmet');
 
 const pool = require('../config/db');
 
+const startReminderJob = require('./jobs/reminderJob');
 //  ROUTES
 const userRoutes = require('./routes/userRoutes');
 const classRoutes = require('./routes/classRoutes');
@@ -15,6 +16,7 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const assignmentRoutes = require('./routes/assignmentRoutes');
 const submissionRoutes = require('./routes/submissionRoutes');
 const gradesRoutes = require('./routes/gradesRoutes')
+const notificationRoutes = require('./routes/notificationRoutes');
 
 // MIDDLEWARE
 app.use(cors());
@@ -45,6 +47,7 @@ app.use('/api/assignments', assignmentRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/grades', gradesRoutes)
 app.use('/uploads', express.static('uploads'));
+app.use('/api/notifications', notificationRoutes);
 
 
 app.use((err, req, res, next) => {
@@ -67,3 +70,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+startReminderJob();

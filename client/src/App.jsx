@@ -12,6 +12,7 @@ import ResubmitRequests from './pages/ResubmitRequests';
 import SubmissionsPage from './pages/SubmissionsPage';
 import GradesPage from './pages/GradesPage';
 import LoginRecordsPage from './pages/LoginRecordsPage';
+import NotificationsPage from './pages/NotificationsPage';
 
 import ProtectedRoute from './components/routes/ProtectedRoute';
 import AdminRoute from './components/routes/AdminRoute';
@@ -131,6 +132,15 @@ function App() {
           element={
             <ProtectedRoute>
                 <GradesPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+                <NotificationsPage />
             </ProtectedRoute>
           }
         />

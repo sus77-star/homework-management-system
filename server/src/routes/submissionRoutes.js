@@ -24,66 +24,214 @@ router.get(
       // =========================
       if (role === 'student') {
 
-        const result = await pool.query(
-          `
-          SELECT
-            s.*,
-            a.title AS assignment_title,
-            c.title AS course_title
+const result = await pool.query(
+`
+(
+  SELECT
+    s.id,
+    s.assignment_id,
+    s.score,
+    s.grade_letter,
+    s.status,
+    s.feedback,
+    s.file_url,
+    s.submitted_at,
 
-          FROM submissions s
+    'upload' AS submission_type,
 
-          JOIN assignments a
-            ON a.id = s.assignment_id
+    a.title AS assignment_title,
+    c.title AS course_title
 
-          JOIN courses c
-            ON c.id = a.course_id
+  FROM submissions s
 
-          JOIN class_courses cc
-            ON cc.course_id = c.id
+  JOIN assignments a
+    ON a.id = s.assignment_id
 
-          JOIN enrollments e
-            ON e.class_id = cc.class_id
+  JOIN courses c
+    ON c.id = a.course_id
 
-          WHERE s.student_id = $1
-          AND e.student_id = $1
+  JOIN class_courses cc
+    ON cc.course_id = c.id
 
-          ORDER BY s.submitted_at DESC
-          `,
-          [userId]
-        );
+  JOIN enrollments e
+    ON e.class_id = cc.class_id
 
-        return res.json(result.rows);
+  WHERE s.student_id = $1
+  AND e.student_id = $1
+)
+
+UNION ALL
+
+(
+  SELECT
+
+    MIN(sa.id) AS id,
+
+    a.id AS assignment_id,
+
+    COALESCE(
+      SUM(sa.score),
+      0
+    ) AS score,
+
+    CASE
+      WHEN COALESCE(SUM(sa.score),0) >= 90 THEN 'A'
+      WHEN COALESCE(SUM(sa.score),0) >= 85 THEN 'A-'
+      WHEN COALESCE(SUM(sa.score),0) >= 80 THEN 'B+'
+      WHEN COALESCE(SUM(sa.score),0) >= 75 THEN 'B'
+      WHEN COALESCE(SUM(sa.score),0) >= 70 THEN 'B-'
+      ELSE 'C'
+    END AS grade_letter,
+
+    'graded' AS status,
+
+    NULL AS feedback,
+
+    NULL AS file_url,
+
+    NOW() AS submitted_at,
+
+    'quiz' AS submission_type,
+
+    a.title AS assignment_title,
+
+    c.title AS course_title
+
+  FROM student_answers sa
+
+  JOIN questions q
+    ON q.id = sa.question_id
+
+  JOIN assignments a
+    ON a.id = q.assignment_id
+
+  JOIN courses c
+    ON c.id = a.course_id
+
+  WHERE sa.student_id = $1
+
+  GROUP BY
+    a.id,
+    a.title,
+    c.title
+)
+
+ORDER BY submitted_at DESC
+`,
+[userId]
+);
+
+      return res.json(result.rows);
       }
 
       // =========================
       // TEACHER
       // =========================
-      const result = await pool.query(
-        `
-        SELECT
-          s.*,
-          u.name AS student_name,
-          a.title AS assignment_title,
-          c.title AS course_title
+const result = await pool.query(
+`
+(
+  SELECT
 
-        FROM submissions s
+    s.id,
+    s.assignment_id,
 
-        JOIN users u
-          ON u.id = s.student_id
+    s.score,
+    s.grade_letter,
 
-        JOIN assignments a
-          ON a.id = s.assignment_id
+    s.status,
+    s.feedback,
 
-        JOIN courses c
-          ON c.id = a.course_id
+    s.file_url,
+    s.submitted_at,
 
-        WHERE c.teacher_id = $1
+    'upload' AS submission_type,
 
-        ORDER BY s.submitted_at DESC
-        `,
-        [userId]
-      );
+    u.name AS student_name,
+
+    a.title AS assignment_title,
+
+    c.title AS course_title
+
+  FROM submissions s
+
+  JOIN users u
+    ON u.id = s.student_id
+
+  JOIN assignments a
+    ON a.id = s.assignment_id
+
+  JOIN courses c
+    ON c.id = a.course_id
+
+  WHERE c.teacher_id = $1
+)
+
+UNION ALL
+
+(
+  SELECT
+
+    MIN(sa.id) AS id,
+
+    a.id AS assignment_id,
+
+    COALESCE(
+      SUM(sa.score),
+      0
+    ) AS score,
+
+    CASE
+      WHEN COALESCE(SUM(sa.score),0) >= 90 THEN 'A'
+      WHEN COALESCE(SUM(sa.score),0) >= 85 THEN 'A-'
+      WHEN COALESCE(SUM(sa.score),0) >= 80 THEN 'B+'
+      WHEN COALESCE(SUM(sa.score),0) >= 75 THEN 'B'
+      WHEN COALESCE(SUM(sa.score),0) >= 70 THEN 'B-'
+      ELSE 'C'
+    END AS grade_letter,
+
+    'graded' AS status,
+
+    NULL AS feedback,
+
+    NULL AS file_url,
+
+    NOW() AS submitted_at,
+
+    'quiz' AS submission_type,
+
+    u.name AS student_name,
+
+    a.title AS assignment_title,
+
+    c.title AS course_title
+
+  FROM student_answers sa
+
+  JOIN users u
+    ON u.id = sa.student_id
+
+  JOIN questions q
+    ON q.id = sa.question_id
+
+  JOIN assignments a
+    ON a.id = q.assignment_id
+
+  JOIN courses c
+    ON c.id = a.course_id
+
+  WHERE c.teacher_id = $1
+
+  GROUP BY
+    u.name,
+    a.id,
+    a.title,
+    c.title
+)
+
+ORDER BY submitted_at DESC
+`,
+[userId]
+);
 
       res.json(result.rows);
 

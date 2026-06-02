@@ -25,6 +25,19 @@ export default function AssignmentsPage() {
   const [search, setSearch] = useState('');
   const [role, setRole] = useState('');
 
+  const [courseFilter, setCourseFilter] =
+    useState('all');
+
+  const [submissionFilter, setSubmissionFilter] =
+    useState('all');
+
+  const [statusFilter, setStatusFilter] =
+    useState('all');
+
+  const [currentPage, setCurrentPage] =
+    useState(1);
+
+  const itemsPerPage = 6;
   // ==============================
   // INIT
   // ==============================
@@ -66,11 +79,100 @@ export default function AssignmentsPage() {
   // ==============================
   // FILTER
   // ==============================
-  const filtered = assignments.filter((a) =>
+const filtered = assignments.filter((a) => {
+
+  const matchesSearch =
     a.title
       ?.toLowerCase()
-      .includes(search.toLowerCase())
+      .includes(
+        search.toLowerCase()
+      );
+
+  const matchesCourse =
+    courseFilter === 'all' ||
+    a.course_title === courseFilter;
+
+  const matchesSubmission =
+
+    submissionFilter === 'all' ||
+
+    (
+      submissionFilter ===
+      'submitted' &&
+      a.submission_status
+    ) ||
+
+    (
+      submissionFilter ===
+      'not_submitted' &&
+      !a.submission_status
+    ) ||
+
+    (
+      submissionFilter ===
+      'graded' &&
+      a.score !== null &&
+      a.score !== undefined
+    ) ||
+
+    (
+      submissionFilter ===
+      'ungraded' &&
+      a.submission_status &&
+      (
+        a.score === null ||
+        a.score === undefined
+      )
+    );
+
+  const isExpired =
+    new Date(a.due_date)
+    < new Date();
+
+  const matchesStatus =
+    statusFilter === 'all' ||
+
+    (
+      statusFilter === 'open'
+      && !isExpired
+    ) ||
+
+    (
+      statusFilter === 'closed'
+      && isExpired
+    );
+
+  return (
+    matchesSearch &&
+    matchesCourse &&
+    matchesSubmission &&
+    matchesStatus
   );
+});
+
+const totalPages =
+  Math.ceil(
+    filtered.length /
+    itemsPerPage
+  );
+
+const startIndex =
+  (currentPage - 1) *
+  itemsPerPage;
+
+const paginatedAssignments =
+  filtered.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
+
+    const courses = [
+      ...new Set(
+        assignments.map(
+          a => a.course_title
+        )
+      )
+    ];
 
   return (
     <Layout>
@@ -129,12 +231,116 @@ export default function AssignmentsPage() {
 
           value={search}
 
-          onChange={(e) =>
-            setSearch(e.target.value)
-          }
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setCurrentPage(1);
+          }}
         />
 
       </div>
+
+<div className="
+  grid
+  md:grid-cols-3
+  gap-3
+  mb-6
+">
+
+  <select
+    value={courseFilter}
+    onChange={(e) => {
+      setCourseFilter(
+        e.target.value
+      );
+      setCurrentPage(1);
+    }}
+    className="
+      border rounded-xl
+      px-4 py-3
+      bg-white
+    "
+  >
+    <option value="all">
+      All Courses
+    </option>
+
+    {courses.map(course => (
+      <option
+        key={course}
+        value={course}
+      >
+        {course}
+      </option>
+    ))}
+  </select>
+
+  {role === 'student' && (
+    <select
+      value={submissionFilter}
+      onChange={(e) => {
+        setSubmissionFilter(
+          e.target.value
+        );
+        setCurrentPage(1);
+      }}
+      className="
+        border rounded-xl
+        px-4 py-3
+        bg-white
+      "
+    >
+      <option value="all">
+        All Submission
+      </option>
+
+      <option value="submitted">
+        Submitted
+      </option>
+
+      <option value="not_submitted">
+        Not Submitted
+      </option>
+
+      <option value="graded">
+        Graded
+      </option>
+
+      <option value="ungraded">
+        Ungraded
+      </option>
+      
+    </select>
+  )}
+
+  <select
+    value={statusFilter}
+    onChange={(e) => {
+      setStatusFilter(
+        e.target.value
+      );
+      setCurrentPage(1);
+    }}
+    className="
+      border rounded-xl
+      px-4 py-3
+      bg-white
+    "
+  >
+    <option value="all">
+      All Status
+    </option>
+
+    <option value="open">
+      Open
+    </option>
+
+    <option value="closed">
+      Closed
+    </option>
+
+  </select>
+
+</div>
 
       {/* ======================
           ASSIGNMENT GRID
@@ -177,7 +383,7 @@ export default function AssignmentsPage() {
 
         ) : (
 
-          filtered.map((a) => {
+          paginatedAssignments.map((a) => {
 
             const isExpired =
               new Date(a.due_date) < new Date();
@@ -475,7 +681,7 @@ export default function AssignmentsPage() {
                       flex items-center gap-1
                     ">
                       <AlertCircle size={15} />
-                      Expired
+                      Closed
                     </span>
 
                   ) : (
@@ -486,7 +692,7 @@ export default function AssignmentsPage() {
                       flex items-center gap-1
                     ">
                       <Clock size={15} />
-                      Active
+                      Open
                     </span>
 
                   )}
@@ -507,6 +713,67 @@ export default function AssignmentsPage() {
 
       </div>
 
+      {totalPages > 1 && (
+
+        <div className="
+          flex
+          justify-center
+          items-center
+          gap-3
+          mt-8
+        ">
+
+          <button
+            disabled={
+              currentPage === 1
+            }
+            onClick={() =>
+              setCurrentPage(
+                currentPage - 1
+              )
+            }
+            className="
+              px-4 py-2
+              bg-white
+              border
+              rounded-lg
+              disabled:opacity-50
+            "
+          >
+            Prev
+          </button>
+
+          <span className="font-medium">
+            Page {currentPage}
+            {' / '}
+            {totalPages}
+          </span>
+
+          <button
+            disabled={
+              currentPage === totalPages
+            }
+            onClick={() =>
+              setCurrentPage(
+                currentPage + 1
+              )
+            }
+            className="
+              px-4 py-2
+              bg-white
+              border
+              rounded-lg
+              disabled:opacity-50
+            "
+          >
+            Next
+          </button>
+
+        </div>
+
+      )}
+
     </Layout>
   );
 }
+

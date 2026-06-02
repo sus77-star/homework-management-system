@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import api from '../services/api';
 import { jwtDecode } from 'jwt-decode';
@@ -15,11 +15,13 @@ import {
   ChevronDown,
   ChevronRight,
   Pencil,
-  Trash2
+  Trash2,
+  ArrowLeft
 } from 'lucide-react';
 
 export default function AssignmentDetail() {
 const { id } = useParams();
+const navigate = useNavigate();
 
 const [assignment, setAssignment] = useState(null);
 const [role, setRole] = useState('');
@@ -548,7 +550,7 @@ const handleSubmit = async () => {
 // REQUEST RESUBMIT
 // ==============================
 const handleRequestResubmit = async () => {
-  if (!reason) return alert('Please enter reason');
+  if (!reason) return toast.error('Please enter reason');
 
   try {
     const res = await api.post(
@@ -558,14 +560,14 @@ const handleRequestResubmit = async () => {
 
     console.log("SUCCESS:", res.data);
 
-    alert('Request sent');
+    toast.success('Request sent');
     setReason('');
 
     await fetchAll(); 
 
   } catch (err) {
     console.log("ERROR:", err.response?.data);
-    alert(err.response?.data?.message || 'Request failed');
+    toast.error(err.response?.data?.message || 'Request failed');
   }
 };
 
@@ -1055,9 +1057,38 @@ for (const q of questions) {
       0
     );
 
+    const pendingRequests =
+      requests.filter(
+        r => r.status === 'pending'
+      );
+
+
   return (
     <Layout>
-      {/* ======================
+
+    <button
+      onClick={() => navigate(-1)}
+      className="
+        fixed
+        bottom-6
+        right-6
+        z-50
+
+        bg-blue-600
+        hover:bg-blue-700
+
+        text-white
+        p-3
+
+        rounded-full
+        shadow-lg
+        transition
+      "
+    >
+      <ArrowLeft size={22} />
+    </button>
+
+{/* ======================
     ASSIGNMENT HEADER
 ====================== */}
 <div className="
@@ -1677,6 +1708,7 @@ for (const q of questions) {
       className="
         border rounded-xl
         w-full p-3
+        bg-gray-50 focus:ring-2 focus:ring-blue-500
       "
     />
 
@@ -1697,6 +1729,7 @@ for (const q of questions) {
       className="
         border rounded-xl
         w-full p-3
+        bg-gray-50 focus:ring-2 focus:ring-blue-500
       "
     />
     </>
@@ -1726,6 +1759,7 @@ for (const q of questions) {
         className="
           bg-gray-300
           hover:bg-gray-400
+          text-gray-700
           px-5 py-2
           rounded-xl
           transition
@@ -2414,6 +2448,8 @@ for (const q of questions) {
           className="
             border w-full p-2
             rounded-lg
+            bg-gray-50 focus:ring-2 focus:ring-blue-500
+            text-sm mb-3
           "
           value={reason}
           onChange={(e) =>
@@ -2455,7 +2491,7 @@ for (const q of questions) {
         </div>
       )}
 
-      {/* ======================
+{/* ======================
     SUBMIT
 ====================== */}
 {role === 'student' &&
@@ -2585,71 +2621,115 @@ for (const q of questions) {
       {/* ======================
           SUBMISSIONS TABLE
       ====================== */}
-      <div className="bg-white rounded-2xl shadow overflow-hidden">
+      <div>
         <div className="p-4 border-b font-semibold">
-          Submissions
+        
         </div>
       
       
 
          {/* ======================
-    RESUBMIT REQUESTS (TEACHER)
-====================== */}
-{role === 'teacher' && (
-  <div className="bg-white rounded-xl shadow mt-6">
-    <div className="p-4 border-b font-semibold text-gray-700 bg-gray-50">
-      Resubmit Requests
-    </div>
-    {requests.length === 0 ? (
-      <p className="p-4 text-gray-500">No requests</p>
-    ) : (
-      <table className="w-full text-sm">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="p-4 text-center font-semibold text-black">Student</th>
-            <th className="p-4 text-center font-semibold text-black">Reason</th>
-            <th className="p-4 text-center font-semibold text-black">Status</th>
-            <th className="p-4 text-center font-semibold text-black">Action</th>
-          </tr>
-        </thead>
-        
-        <tbody>
-            
-          {requests.map((r) => (
-            <tr key={r.id} className="border-t">
-              <td className="p-3">{r.student_name}</td>
-              <td className="p-3">{r.reason}</td>
-              <td className="p-3">{r.status}</td>
+              RESUBMIT REQUESTS (TEACHER)
+          ====================== */}
+          {role === 'teacher' &&
+          pendingRequests.length > 0 && (
 
-              <td className="p-3 text-center space-x-2">
-                {r.status === 'pending' && (
-                  <>
-                    <button
-                      onClick={() => handleUpdateRequest(r.id, 'approved')}
-                      className="bg-green-500 text-white px-2 py-1 rounded"
-                    >
-                      Approve
-                    </button>
+            <div className="bg-white rounded-xl shadow mt-6">
 
-                    <button
-                      onClick={() => handleUpdateRequest(r.id, 'rejected')}
-                      className="bg-red-500 text-white px-2 py-1 rounded"
-                    >
-                      Reject
-                    </button>
-                  </>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    )}
-  </div>
-)}
+              <div className="p-4 border-b font-semibold text-gray-700 bg-gray-50">
+                Resubmit Requests
+              </div>
+
+              <table className="w-full text-sm">
+
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="p-4 text-center font-semibold text-black">
+                      Student
+                    </th>
+
+                    <th className="p-4 text-center font-semibold text-black">
+                      Reason
+                    </th>
+
+                    <th className="p-4 text-center font-semibold text-black">
+                      Status
+                    </th>
+
+                    <th className="p-4 text-center font-semibold text-black">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+
+                  {pendingRequests.map((r) => (
+                    <tr key={r.id} className="border-t">
+
+                      <td className="p-3">
+                        {r.student_name}
+                      </td>
+
+                      <td className="p-3">
+                        {r.reason}
+                      </td>
+
+                      <td className="p-3">
+                        {r.status}
+                      </td>
+
+                      <td className="p-3 text-center space-x-2">
+
+                        <button
+                          onClick={() =>
+                            handleUpdateRequest(
+                              r.id,
+                              'approved'
+                            )
+                          }
+                          className="
+                            bg-green-500
+                            text-white
+                            px-2 py-1
+                            rounded
+                          "
+                        >
+                          Approve
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            handleUpdateRequest(
+                              r.id,
+                              'rejected'
+                            )
+                          }
+                          className="
+                            bg-red-500
+                            text-white
+                            px-2 py-1
+                            rounded
+                          "
+                        >
+                          Reject
+                        </button>
+
+                      </td>
+
+                    </tr>
+                  ))}
+
+                </tbody>
+
+              </table>
+
+            </div>
+          )}
+
         <div className="p-4 border-b font-semibold text-gray-700 bg-gray-50">
-      Submission
-    </div>
+          Submission
+        </div>
         {submissions.length === 0 ? (
           <p className="p-4 text-gray-500">
             No submissions
@@ -2794,6 +2874,8 @@ for (const q of questions) {
           focus:outline-none
           focus:ring-2
           focus:ring-blue-500
+          bg-gray-50
+          text-center
         "
 
         value={
@@ -2849,6 +2931,7 @@ for (const q of questions) {
           focus:outline-none
           focus:ring-2
           focus:ring-blue-500
+          bg-gray-50
         "
 
         value={

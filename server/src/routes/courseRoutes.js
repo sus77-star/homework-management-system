@@ -246,7 +246,7 @@ router.put('/:id', auth, roleMiddleware(['admin']), async (req, res) => {
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Error updating course ❌' });
+    res.status(500).json({ message: 'Error updating course ' });
   }
 });
 

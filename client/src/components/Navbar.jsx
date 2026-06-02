@@ -8,7 +8,32 @@ export default function Navbar() {
   const [notifOpen, setNotifOpen] = useState(false);
 
   const [user, setUser] = useState(null);
-  const [requestCount, setRequestCount] = useState(0);
+  const [
+    notificationCount,
+    setNotificationCount
+  ] = useState(0);
+
+  const fetchNotificationCount =
+    async () => {
+
+      try {
+
+        const res =
+          await api.get(
+            '/notifications/unread-count'
+          );
+
+        setNotificationCount(
+          res.data.count
+        );
+
+      } catch (err) {
+
+        console.log(err);
+
+      }
+
+    };
   const [notifications, setNotifications] = useState([]);
 
   // ==============================
@@ -19,16 +44,20 @@ export default function Navbar() {
   }, []);
 
   // ==============================
-  // AUTO REFRESH (ONLY TEACHER)
+  // AUTO REFRESH 
   // ==============================
   useEffect(() => {
-    if (user?.role !== 'teacher') return;
 
-    fetchRequestCount();
+    if (
+      user?.role !== 'teacher' &&
+      user?.role !== 'student'
+    ) return;
+
+    fetchNotificationCount();
     fetchNotifications();
 
     const interval = setInterval(() => {
-      fetchRequestCount();
+      fetchNotificationCount();
       fetchNotifications();
     }, 5000);
 
@@ -60,23 +89,40 @@ export default function Navbar() {
     }
   };
 
-  const fetchRequestCount = async () => {
-    try {
-      const res = await api.get('/assignments/resubmit-requests-count');
-      setRequestCount(res.data.count);
-    } catch (err) {
-      console.log(err.response?.data);
-    }
-  };
 
-  const fetchNotifications = async () => {
-    try {
-      const res = await api.get('/assignments/resubmit-notifications');
-      setNotifications(res.data);
-    } catch (err) {
-      console.log(err.response?.data);
-    }
-  };
+  const fetchNotifications =
+    async () => {
+
+      const res =
+        await api.get(
+          '/notifications'
+        );
+
+      setNotifications(
+        res.data
+      );
+
+    };
+
+  const markAsRead =
+    async (id) => {
+
+      try {
+
+        await api.put(
+          `/notifications/${id}/read`
+        );
+
+        fetchNotificationCount();
+        fetchNotifications();
+
+      } catch (err) {
+
+        console.log(err);
+
+      }
+
+    };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -107,11 +153,21 @@ export default function Navbar() {
             }}
             className="relative"
           >
-            <Bell size={22} className="text-gray-700 hover:text-blue-600 transition" />
+          <Bell
+            size={22}
+            className={
+              
+              notificationCount > 0
+                ? 'text-blue-600'
+                : 'text-gray-700'
+            }
+          />
 
-            {requestCount > 0 && (
+            {notificationCount > 0 && (
               <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-semibold">
-                {requestCount}
+                {notificationCount > 9
+                  ? '9+'
+                  : notificationCount}
               </span>
             )}
           </button>
@@ -134,31 +190,99 @@ export default function Navbar() {
                 No notifications
               </p>
             ) : (
-              <div className="max-h-96 overflow-y-auto">
+              <div className="max-h-56 overflow-y-auto">
                 {notifications.map((n) => (
-                  <Link
-                    key={n.id}
-                    to="/resubmit-request"
-                    onClick={() => setNotifOpen(false)}
-                    className="block p-4 border-b hover:bg-gray-50 transition"
+                <Link
+                  key={n.id}
+                  to={n.link || '/notifications'}
+
+                  onClick={async () => {
+
+                    await markAsRead(
+                      n.id
+                    );
+
+                    setNotifOpen(false);
+
+                  }}
+
+                  className={`
+                    block
+                    p-3
+                    border-b
+                    transition
+
+                    ${
+                      !n.is_read
+                        ? `
+                          bg-blue-50
+                          border-l-4
+                          border-l-blue-500
+                          hover:bg-blue-100
+                        `
+                        : `
+                          bg-white
+                          opacity-70
+                          hover:bg-gray-50
+                        `
+                    }
+                  `}
                   >
-                    <p className="text-sm font-medium">
-                      {n.student_name} requested resubmit
+
+                    {!n.is_read && (
+
+                      <span
+                        className="
+                          inline-block
+                          mb-2
+                          px-2
+                          py-0.5
+                          text-[10px]
+                          font-semibold
+                          bg-blue-100
+                          text-blue-700
+                          rounded-full
+                        "
+                      >
+                        NEW
+                      </span>
+
+                    )}
+
+                    <p className="text-sm font-semibold text-gray-800">
+                      {n.title}
                     </p>
 
                     <p className="text-xs text-gray-500 mt-1">
-                      {n.assignment_title}
+                      {n.message}
                     </p>
 
-                    <p className="text-[11px] text-gray-400 mt-1">
+                    <p className="text-[10px] text-gray-400 mt-1">
                       {new Date(n.created_at).toLocaleString()}
                     </p>
-                    View all notifications
+
                   </Link>
                 ))}
               </div>
+              
             )}
+            <div className="p-3 text-center border-t">
+            <Link
+              to="/notifications"
+              onClick={() => setNotifOpen(false)}
+              className="
+                text-blue-600
+                text-sm
+                font-medium
+                hover:underline
+              "
+            >
+              View all notifications
+            </Link>
+
           </div>
+          </div>
+          
         )}
 
         {/* =========================

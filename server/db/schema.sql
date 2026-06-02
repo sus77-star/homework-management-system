@@ -332,3 +332,7 @@ UNIQUE (
     student_id,
     reminder_time
 );
+
+ALTER TABLE notifications
+ADD COLUMN link TEXT;
+

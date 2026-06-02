@@ -51,3 +51,43 @@ SELECT * FROM class_courses;
 SELECT * FROM classes;
 SELECT * FROM courses;
 SELECT * FROM enrollments;
+
+INSERT INTO notifications
+(
+  user_id,
+  title,
+  message
+)
+VALUES
+(
+  11,
+  'Test Notification',
+  'Notification system works'
+);
+
+INSERT INTO notifications
+(
+  user_id,
+  title,
+  message
+)
+VALUES
+(
+  11,
+  'Homework Reminder',
+  'Database Assignment is due tomorrow'
+);
+
+SELECT *
+FROM assignment_reminders;
+
+UPDATE assignment_reminders
+SET reminder_time = NOW()
+WHERE id = 47;
+
+SELECT *
+FROM notifications
+ORDER BY created_at DESC;
+SELECT *
+FROM assignment_reminders
+WHERE id = 39;

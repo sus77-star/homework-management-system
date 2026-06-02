@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import Layout from '../components/Layout';
 import api from '../services/api';
@@ -22,6 +23,20 @@ export default function SubmissionsPage() {
   const [search, setSearch] = useState('');
   const [role, setRole] = useState('');
 
+  const [courseFilter, setCourseFilter] =
+    useState('all');
+
+  const [statusFilter, setStatusFilter] =
+    useState('all');
+
+  const [gradeFilter, setGradeFilter] =
+    useState('all');
+
+  const [currentPage, setCurrentPage] =
+    useState(1);
+
+  const itemsPerPage = 5;
+
   // ==============================
   // INIT
   // ==============================
@@ -43,18 +58,13 @@ export default function SubmissionsPage() {
   // ==============================
   useEffect(() => {
 
-    const keyword = search.toLowerCase();
+    const keyword =
+      search.toLowerCase();
 
-    const result = submissions.filter((s) => {
+    const result =
+      submissions.filter((s) => {
 
-      if (role === 'teacher') {
-
-        return (
-          s.student_name
-            ?.toLowerCase()
-            .includes(keyword)
-
-          ||
+        const matchesSearch =
 
           s.assignment_title
             ?.toLowerCase()
@@ -64,26 +74,89 @@ export default function SubmissionsPage() {
 
           s.course_title
             ?.toLowerCase()
-            .includes(keyword)
+            .includes(keyword);
+
+        const matchesCourse =
+
+          courseFilter === 'all'
+
+          ||
+
+          s.course_title ===
+          courseFilter;
+
+        const matchesStatus =
+
+          statusFilter === 'all'
+
+          ||
+
+          (
+            statusFilter ===
+            'graded'
+
+            &&
+
+            s.status ===
+            'graded'
+          )
+
+          ||
+
+          (
+            statusFilter ===
+            'pending'
+
+            &&
+
+            s.status !==
+            'graded'
+          );
+
+        const matchesGrade =
+
+          gradeFilter === 'all'
+
+          ||
+
+          s.grade_letter ===
+          gradeFilter;
+
+        return (
+
+          matchesSearch
+
+          &&
+
+          matchesCourse
+
+          &&
+
+          matchesStatus
+
+          &&
+
+          matchesGrade
+
         );
-      }
 
-      return (
-        s.assignment_title
-          ?.toLowerCase()
-          .includes(keyword)
-
-        ||
-
-        s.course_title
-          ?.toLowerCase()
-          .includes(keyword)
-      );
-    });
+      });
 
     setFiltered(result);
 
-  }, [search, submissions, role]);
+  }, [
+
+    search,
+
+    submissions,
+
+    courseFilter,
+
+    statusFilter,
+
+    gradeFilter
+
+  ]);
 
   // ==============================
   // FETCH
@@ -103,6 +176,34 @@ export default function SubmissionsPage() {
 
     }
   };
+
+  const courses = [
+
+    ...new Set(
+
+      submissions.map(
+        s => s.course_title
+      )
+
+    )
+
+  ];
+
+  const totalPages = Math.ceil(
+    filtered.length /
+    itemsPerPage
+  );
+
+  const startIndex =
+    (currentPage - 1) *
+    itemsPerPage;
+
+  const paginatedSubmissions =
+    filtered.slice(
+      startIndex,
+      startIndex + itemsPerPage
+    );
+
 
   return (
     <Layout>
@@ -136,6 +237,105 @@ export default function SubmissionsPage() {
         </p>
 
       </div>
+      <div
+  className="
+    grid
+    grid-cols-2
+    md:grid-cols-4
+    gap-4
+    mb-6
+  "
+>
+
+  <div className="bg-white p-4 rounded-xl shadow">
+
+    <p className="text-sm text-gray-500">
+      Total
+    </p>
+
+    <p className="text-2xl font-bold">
+      {submissions.length}
+    </p>
+
+  </div>
+
+  <div className="bg-white p-4 rounded-xl shadow">
+
+    <p className="text-sm text-gray-500">
+      Graded
+    </p>
+
+    <p className="text-2xl font-bold text-green-600">
+
+      {
+        submissions.filter(
+          s => s.status === 'graded'
+        ).length
+      }
+
+    </p>
+
+  </div>
+
+  <div className="bg-white p-4 rounded-xl shadow">
+
+    <p className="text-sm text-gray-500">
+      Pending
+    </p>
+
+    <p className="text-2xl font-bold text-yellow-600">
+
+      {
+        submissions.filter(
+          s => s.status !== 'graded'
+        ).length
+      }
+
+    </p>
+
+  </div>
+
+  <div className="bg-white p-4 rounded-xl shadow">
+
+    <p className="text-sm text-gray-500">
+      Average Score
+    </p>
+
+    <p className="text-2xl font-bold text-blue-600">
+
+      {
+        submissions.filter(
+          s => s.score != null
+        ).length
+
+          ? Math.round(
+
+              submissions
+                .filter(
+                  s => s.score != null
+                )
+                .reduce(
+                  (sum, s) =>
+                    sum + Number(s.score),
+                  0
+                )
+
+              /
+
+              submissions.filter(
+                s => s.score != null
+              ).length
+
+            )
+
+          : '-'
+      }
+
+    </p>
+
+  </div>
+
+</div>
 
       {/* ======================
           SEARCH
@@ -171,14 +371,138 @@ export default function SubmissionsPage() {
 
             value={search}
 
-            onChange={(e) =>
-              setSearch(e.target.value)
-            }
+            onChange={(e) => {
+
+              setSearch(
+                e.target.value
+              );
+
+              setCurrentPage(1);
+
+            }}
           />
 
         </div>
 
       </div>
+
+<div
+  className="
+    grid
+    md:grid-cols-3
+    gap-3
+    mb-6
+  "
+>
+
+  {/* COURSE */}
+
+  <select
+    value={courseFilter}
+    onChange={(e) => {
+
+      setCourseFilter(
+        e.target.value
+      );
+
+      setCurrentPage(1);
+
+    }}
+    className="
+      border
+      rounded-xl
+      px-4 py-3
+      bg-white
+    "
+  >
+
+    <option value="all">
+      All Courses
+    </option>
+
+    {courses.map(course => (
+
+      <option
+        key={course}
+        value={course}
+      >
+        {course}
+      </option>
+
+    ))}
+
+  </select>
+
+  {/* STATUS */}
+
+  <select
+    value={statusFilter}
+    onChange={(e) => {
+
+      setStatusFilter(
+        e.target.value
+      );
+
+      setCurrentPage(1);
+
+    }}
+    className="
+      border
+      rounded-xl
+      px-4 py-3
+      bg-white
+    "
+  >
+
+    <option value="all">
+      All Status
+    </option>
+
+    <option value="graded">
+      Graded
+    </option>
+
+    <option value="pending">
+      Pending
+    </option>
+
+  </select>
+
+  {/* GRADE */}
+
+  <select
+    value={gradeFilter}
+    onChange={(e) => {
+
+      setGradeFilter(
+        e.target.value
+      );
+
+      setCurrentPage(1);
+
+    }}
+    className="
+      border
+      rounded-xl
+      px-4 py-3
+      bg-white
+    "
+  >
+
+    <option value="all">
+      All Grades
+    </option>
+
+    <option value="A">A</option>
+    <option value="A-">A-</option>
+    <option value="B+">B+</option>
+    <option value="B">B</option>
+    <option value="B-">B-</option>
+    <option value="C">C</option>
+
+  </select>
+
+</div>
 
       {/* ======================
           TABLE
@@ -201,37 +525,43 @@ export default function SubmissionsPage() {
                 </th>
               )}
 
-              <th className="p-4">
+              <th className="p-4 text-center">
                 Assignment
               </th>
+              
+              <th className="p-4 text-center">
+                Type
+              </th>
 
-              <th className="p-4">
+              <th className="p-4 text-center">
                 Course
               </th>
 
-              <th className="p-4">
+              <th className="p-4 text-center">
                 Submitted
               </th>
 
-              <th className="p-4">
+              <th className="p-4 text-center">
                 Status
               </th>
 
-              <th className="p-4">
+              <th className="p-4 text-center">
                 Score
               </th>
 
-              <th className="p-4">
+              <th className="p-4 text-center">
                 Grade
               </th>
 
-              <th className="p-4">
+              <th className="p-4 text-center">
                 File
               </th>
 
             </tr>
 
           </thead>
+
+
 
           <tbody>
 
@@ -242,8 +572,8 @@ export default function SubmissionsPage() {
                 <td
                   colSpan={
                     role === 'teacher'
-                      ? 8
-                      : 7
+                      ? 9
+                      : 8
                   }
 
                   className="
@@ -259,7 +589,7 @@ export default function SubmissionsPage() {
 
             ) : (
 
-              filtered.map((s) => {
+              paginatedSubmissions.map((s) => {
 
                 const submittedDate =
                   new Date(s.submitted_at);
@@ -308,12 +638,59 @@ export default function SubmissionsPage() {
                     {/* ASSIGNMENT */}
                     <td className="p-4">
 
-                      <p className="
-                        font-medium
-                        text-gray-800
-                      ">
-                        {s.assignment_title}
-                      </p>
+                      <Link
+                        to={`/assignments/${s.assignment_id}`}
+                        className="block"
+                      >
+
+                        <p className="
+                          font-medium
+                          text-blue-600
+                          hover:underline
+                        ">
+                          {s.assignment_title}
+                        </p>
+
+                        <p className="
+                          text-xs
+                          text-gray-500
+                          mt-1
+                        ">
+                          View  details 
+                        </p>
+
+                      </Link>
+
+                    </td>
+
+                    <td className="p-4">
+
+                      {s.submission_type === 'quiz'
+                        ? (
+                          <span className="
+                            bg-purple-100
+                            text-purple-700
+                            px-2 py-1
+                            rounded-lg
+                            text-xs
+                            font-semibold
+                          ">
+                            Quiz
+                          </span>
+                        )
+                        : (
+                          <span className="
+                            bg-blue-100
+                            text-blue-700
+                            px-2 py-1
+                            rounded-lg
+                            text-xs
+                            font-semibold
+                          ">
+                            Upload
+                          </span>
+                        )
+                      }
 
                     </td>
 
@@ -430,19 +807,29 @@ export default function SubmissionsPage() {
                     {/* FILE */}
                     <td className="p-4">
 
-                      <a
-                        href={`http://localhost:3000${s.file_url}`}
-                        target="_blank"
-                        rel="noreferrer"
-
-                        className="
-                          text-blue-600
-                          hover:underline
-                          font-medium
-                        "
-                      >
-                        View File
-                      </a>
+                      {s.submission_type === 'quiz'
+                        ? (
+                          <span className="
+                            text-purple-600
+                            font-medium
+                          ">
+                            Quiz Submission
+                          </span>
+                        )
+                        : (
+                          <a
+                            href={`http://localhost:3000${s.file_url}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="
+                              text-blue-600
+                              hover:underline
+                            "
+                          >
+                            View File
+                          </a>
+                        )
+                      }
 
                     </td>
 
@@ -454,6 +841,84 @@ export default function SubmissionsPage() {
           </tbody>
 
         </table>
+        
+        
+        {totalPages > 1 && (
+
+          <div
+            className="
+              flex
+              justify-center
+              items-center
+              gap-3
+              mt-6
+            "
+          >
+
+            <button
+
+              disabled={
+                currentPage === 1
+              }
+
+              onClick={() =>
+                setCurrentPage(
+                  currentPage - 1
+                )
+              }
+
+              className="
+                px-4 py-2
+                border
+                rounded-lg
+                bg-white
+                disabled:opacity-50
+              "
+            >
+              Prev
+            </button>
+
+            <span className="font-medium">
+
+              Page
+
+              {' '}
+
+              {currentPage}
+
+              {' / '}
+
+              {totalPages}
+
+            </span>
+
+            <button
+
+              disabled={
+                currentPage ===
+                totalPages
+              }
+
+              onClick={() =>
+                setCurrentPage(
+                  currentPage + 1
+                )
+              }
+
+              className="
+                px-4 py-2
+                border
+                rounded-lg
+                bg-white
+                disabled:opacity-50
+              "
+            >
+              Next
+            </button>
+
+          </div>
+
+        )}
 
       </div>
 

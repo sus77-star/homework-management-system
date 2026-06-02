@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Trophy,
+  Bell
 } from 'lucide-react';
 import { jwtDecode } from 'jwt-decode';
 
@@ -60,6 +61,7 @@ export default function Sidebar() {
       { name: 'Assignments', path: '/assignments', icon: <FileText size={18} /> },
       { name: 'Submissions', path: '/submissions', icon: <Upload size={18} /> },
       { name: 'Grades', path: '/grades', icon: <Trophy size={18} /> },
+      { name: "Notifications", path: '/notifications', icon: <Bell size={18} /> }
     ];
   }
 
@@ -72,7 +74,8 @@ export default function Sidebar() {
       { name: 'Courses', path: '/courses', icon: <Book size={18} /> },
       { name: 'Assignments', path: '/assignments', icon: <FileText size={18} /> },
       { name: 'Submissions', path: '/submissions', icon: <Upload size={18} /> },
-      { name: "Grades", path: '/grades', icon: <Trophy size={18} />}
+      { name: "Grades", path: '/grades', icon: <Trophy size={18} />},
+      { name: "Notifications", path: '/notifications', icon: <Bell size={18} /> }
     ];
   }
 

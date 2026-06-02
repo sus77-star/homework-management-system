@@ -48,34 +48,84 @@ router.post(
         ? `/${req.file.path.replace(/\\/g, '/')}`
         : null;
 
+      const assignmentResult =
       await pool.query(
-        `INSERT INTO assignments 
-        (
-          title,
-          description,
-          difficulty,
-          type,
-          course_id,
-          due_date,
-          file_url,
-          allowed_formats,
-          max_file_size,
-          created_by
-        )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-        [
-          title,
-          description,
-          difficulty,
-          type,
-          course_id,
-          due_date,
-          fileUrl,
-          formats,
-          maxSize,
-          req.user.id 
-        ]
+      `
+      INSERT INTO assignments
+      (
+        title,
+        description,
+        difficulty,
+        type,
+        course_id,
+        due_date,
+        file_url,
+        allowed_formats,
+        max_file_size,
+        created_by
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      RETURNING id
+      `,
+      [
+        title,
+        description,
+        difficulty,
+        type,
+        course_id,
+        due_date,
+        fileUrl,
+        formats,
+        maxSize,
+        req.user.id
+      ]
       );
+
+      // =========================
+      // NOTIFY STUDENTS
+      // =========================
+      const assignmentId =
+        assignmentResult.rows[0].id;
+      const students =
+      await pool.query(
+      `
+      SELECT DISTINCT e.student_id
+      FROM enrollments e
+      JOIN class_courses cc
+        ON cc.class_id = e.class_id
+      WHERE cc.course_id = $1
+      `,
+      [course_id]
+      );
+
+      for (const s of students.rows) {
+
+        await pool.query(
+        `
+        INSERT INTO notifications
+        (
+          user_id,
+          title,
+          message,
+          link
+        )
+        VALUES ($1,$2,$3,$4)
+        `,
+        [
+          s.student_id,
+          type === 'quiz'
+            ? 'New Quiz Available'
+            : 'New Assignment Available',
+
+          type === 'quiz'
+            ? `${title} quiz has been published`
+            : `${title} assignment has been published`,
+
+          `/assignments/${assignmentId}`
+        ]
+        );
+
+      }
 
       res.json({
         message: 'Assignment created successfully'
@@ -112,24 +162,47 @@ router.get(
       // =========================
       if (role === 'student') {
 
-        let query = `
-          SELECT DISTINCT
-            a.*,
-            c.title AS course_title
+      let query = `
+      SELECT DISTINCT
+        a.*,
+        c.title AS course_title,
 
-          FROM assignments a
+        s.id AS submission_id,
 
-          JOIN courses c
-            ON c.id = a.course_id
+        CASE
+          WHEN s.id IS NOT NULL
+          THEN true
+          ELSE false
+        END AS submission_status,
 
-          JOIN class_courses cc
-            ON cc.course_id = c.id
+        s.score,
+        s.grade_letter,
 
-          JOIN enrollments e
-            ON e.class_id = cc.class_id
+        (
+          SELECT rr.status
+          FROM resubmit_requests rr
+          WHERE rr.submission_id = s.id
+          ORDER BY rr.created_at DESC
+          LIMIT 1
+        ) AS resubmit_status
 
-          WHERE e.student_id = $1
-        `;
+      FROM assignments a
+
+      JOIN courses c
+        ON c.id = a.course_id
+
+      JOIN class_courses cc
+        ON cc.course_id = c.id
+
+      JOIN enrollments e
+        ON e.class_id = cc.class_id
+
+      LEFT JOIN submissions s
+        ON s.assignment_id = a.id
+        AND s.student_id = $1
+
+      WHERE e.student_id = $1
+      `;
 
         const values = [userId];
 
@@ -491,6 +564,55 @@ router.patch(
         ]
       );
 
+      const assignmentInfo =
+      await pool.query(
+      `
+      SELECT
+        title,
+        course_id
+      FROM assignments
+      WHERE id = $1
+      `,
+      [id]
+      );
+
+      const students =
+      await pool.query(
+      `
+      SELECT DISTINCT e.student_id
+      FROM enrollments e
+      JOIN class_courses cc
+        ON cc.class_id = e.class_id
+      WHERE cc.course_id = $1
+      `,
+      [
+        assignmentInfo.rows[0].course_id
+      ]
+      );
+
+      for (const s of students.rows) {
+
+        await pool.query(
+        `
+        INSERT INTO notifications
+        (
+          user_id,
+          title,
+          message,
+          link
+        )
+        VALUES ($1,$2,$3,$4)
+        `,
+        [
+          s.student_id,
+          'Assignment Updated',
+          `${assignmentInfo.rows[0].title} has been updated`,
+          `/assignments/${id}`
+        ]
+        );
+
+      }
+
       res.json({
         message: 'Assignment updated'
       });
@@ -651,6 +773,47 @@ if (existing.rows[0].status === 'graded') {
           [assignmentId, studentId, fileUrl]
         );
 
+      // =========================
+      // NOTIFICATION TO TEACHER
+      // =========================
+
+      const info = await pool.query(
+      `
+      SELECT
+        u.name AS student_name,
+        a.title AS assignment_title,
+        c.teacher_id
+      FROM users u
+      JOIN assignments a
+        ON a.id = $1
+      JOIN courses c
+        ON c.id = a.course_id
+      WHERE u.id = $2
+      `,
+      [assignmentId, studentId]
+      );
+
+      const data = info.rows[0];
+
+      await pool.query(
+      `
+      INSERT INTO notifications
+      (
+        user_id,
+        title,
+        message,
+        link
+      )
+      VALUES ($1,$2,$3,$4)
+      `,
+      [
+        data.teacher_id,
+        'New Submission',
+        `${data.student_name} submitted ${data.assignment_title}`,
+        `/assignments/${assignmentId}`
+      ]
+      );
+
         await pool.query(
           `
           UPDATE assignment_reminders
@@ -677,26 +840,70 @@ if (existing.rows[0].status === 'graded') {
         [fileUrl, submissionId]
       );
 
+      // =========================
+      // NOTIFICATION TO TEACHER
+      // =========================
+
+      const info = await pool.query(
+      `
+      SELECT
+        u.name AS student_name,
+        a.title AS assignment_title,
+        c.teacher_id
+      FROM users u
+      JOIN assignments a
+        ON a.id = $1
+      JOIN courses c
+        ON c.id = a.course_id
+      WHERE u.id = $2
+      `,
+      [
+        assignmentId,
+        studentId
+      ]
+      );
+
+      const data = info.rows[0];
+
+      await pool.query(
+      `
+      INSERT INTO notifications
+      (
+        user_id,
+        title,
+        message,
+        link
+      )
+      VALUES ($1,$2,$3,$4)
+      `,
+      [
+        data.teacher_id,
+        'Resubmission Received',
+        `${data.student_name} resubmitted ${data.assignment_title}`,
+        `/assignments/${assignmentId}`
+      ]
+      );
+
           // =========================
-// MARK APPROVAL AS USED
-// =========================
-await pool.query(
-  `UPDATE resubmit_requests
-   SET status = 'used'
-   WHERE submission_id = $1
-   AND status = 'approved'`,
-  [submissionId]
-);
+          // MARK APPROVAL AS USED
+          // =========================
+          await pool.query(
+            `UPDATE resubmit_requests
+            SET status = 'used'
+            WHERE submission_id = $1
+            AND status = 'approved'`,
+            [submissionId]
+          );
 
-      return res.json({ message: 'Resubmitted successfully' });
+                return res.json({ message: 'Resubmitted successfully' });
 
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: 'Submit error' });
-    }
+              } catch (err) {
+                console.error(err);
+                res.status(500).json({ message: 'Submit error' });
+              }
 
-  }
-);
+            }
+          );
 
 // ==============================
 // GET SUBMISSIONS
@@ -800,6 +1007,23 @@ router.patch(
       const gradeLetter =
         getGradeLetter(Number(score));
 
+      const submissionInfo = await pool.query(
+      `
+      SELECT
+        s.student_id,
+        s.assignment_id,
+        a.title
+      FROM submissions s
+      JOIN assignments a
+        ON a.id = s.assignment_id
+      WHERE s.id = $1
+      `,
+      [id]
+      );
+
+      const data =
+        submissionInfo.rows[0];
+
       await pool.query(
         `UPDATE submissions
          SET
@@ -814,6 +1038,25 @@ router.patch(
           feedback,
           id
         ]
+      );
+
+      await pool.query(
+      `
+      INSERT INTO notifications
+      (
+        user_id,
+        title,
+        message,
+        link
+      )
+      VALUES ($1,$2,$3,$4)
+      `,
+      [
+        data.student_id,
+        'Assignment Graded',
+        `${data.title} has been graded`,
+        `/assignments/${data.assignment_id}`
+      ]
       );
 
       res.json({
@@ -926,6 +1169,43 @@ router.post(
         [submissionId, studentId, reason]
       );
 
+      const info = await pool.query(
+      `
+      SELECT
+        u.name AS student_name,
+        a.title AS assignment_title,
+        c.teacher_id
+      FROM users u
+      JOIN assignments a
+        ON a.id = $1
+      JOIN courses c
+        ON c.id = a.course_id
+      WHERE u.id = $2
+      `,
+      [assignmentId, studentId]
+      );
+
+      const data = info.rows[0];
+
+      await pool.query(
+      `
+      INSERT INTO notifications
+      (
+        user_id,
+        title,
+        message,
+        link
+      )
+      VALUES ($1,$2,$3,$4)
+      `,
+      [
+        data.teacher_id,
+        'Resubmit Request',
+        `${data.student_name} requested resubmission for ${data.assignment_title}`,
+        `/assignments/${assignmentId}`
+      ]
+      );
+
       res.json({
         message: 'Request sent'
       });
@@ -971,6 +1251,24 @@ router.patch('/resubmit-requests/:id', authMiddleware, roleMiddleware(['teacher'
   const { id } = req.params;
   const { status } = req.body; // approved / rejected
 
+  const requestInfo = await pool.query(
+  `
+  SELECT
+    rr.student_id,
+    s.assignment_id,
+    a.title
+  FROM resubmit_requests rr
+  JOIN submissions s
+    ON s.id = rr.submission_id
+  JOIN assignments a
+    ON a.id = s.assignment_id
+  WHERE rr.id = $1
+  `,
+  [id]
+  );
+
+  const data = requestInfo.rows[0];
+
   await pool.query(
     `UPDATE resubmit_requests
      SET status = $1,
@@ -980,7 +1278,36 @@ router.patch('/resubmit-requests/:id', authMiddleware, roleMiddleware(['teacher'
     [status, req.user.id, id]
   );
 
-  res.json({ message: 'Updated' });
+
+  await pool.query(
+  `
+  INSERT INTO notifications
+  (
+    user_id,
+    title,
+    message,
+    link
+  )
+  VALUES ($1,$2,$3,$4)
+  `,
+  [
+    data.student_id,
+
+    status === 'approved'
+      ? 'Resubmit Approved'
+      : 'Resubmit Rejected',
+
+    status === 'approved'
+      ? `Your request for ${data.title} was approved`
+      : `Your request for ${data.title} was rejected`,
+
+    `/assignments/${data.assignment_id}`
+  ]
+  );
+
+  res.json({
+  message: 'Updated'});
+
 });
 
 router.get('/:id/my-submission', authMiddleware, async (req, res) => {
@@ -1401,6 +1728,50 @@ router.post(
         }
       }
 
+      // =========================
+      // NOTIFICATION TO TEACHER
+      // =========================
+
+      const info = await pool.query(
+      `
+      SELECT
+        u.name AS student_name,
+        a.title AS assignment_title,
+        c.teacher_id
+      FROM users u
+      JOIN assignments a
+        ON a.id = $1
+      JOIN courses c
+        ON c.id = a.course_id
+      WHERE u.id = $2
+      `,
+      [
+        assignmentId,
+        studentId
+      ]
+      );
+
+      const data = info.rows[0];
+
+      await pool.query(
+      `
+      INSERT INTO notifications
+      (
+        user_id,
+        title,
+        message,
+        link
+      )
+      VALUES ($1,$2,$3,$4)
+      `,
+      [
+        data.teacher_id,
+        'New Quiz Submission',
+        `${data.student_name} submitted quiz "${data.assignment_title}"`,
+        `/assignments/${assignmentId}`
+      ]
+      );
+
       res.json({
         message:
           'Quiz submitted successfully'
@@ -1550,6 +1921,25 @@ router.post(
               });
             }
 
+            const answerInfo = await pool.query(
+            `
+            SELECT
+              sa.student_id,
+              a.id AS assignment_id,
+              a.title
+            FROM student_answers sa
+            JOIN questions q
+              ON q.id = sa.question_id
+            JOIN assignments a
+              ON a.id = q.assignment_id
+            WHERE sa.id = $1
+            `,
+            [answerId]
+            );
+
+            const data =
+              answerInfo.rows[0];
+
             await pool.query(
               `
                 UPDATE student_answers
@@ -1563,6 +1953,25 @@ router.post(
                 teacher_comment,
                 answerId
               ]
+            );
+
+            await pool.query(
+            `
+            INSERT INTO notifications
+            (
+              user_id,
+              title,
+              message,
+              link
+            )
+            VALUES ($1,$2,$3,$4)
+            `,
+            [
+              data.student_id,
+              'Quiz Reviewed',
+              `${data.title} quiz has been reviewed`,
+              `/assignments/${data.assignment_id}`
+            ]
             );
 
             res.json({

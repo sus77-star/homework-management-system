@@ -289,14 +289,14 @@ export default function ClassesPage() {
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center">
           <div className="bg-white p-6 rounded-xl w-96">
 
-            <h2 className="font-semibold mb-4">Edit Class</h2>
+            <h2 className="font-semibold mb-4 text-black">Edit Class</h2>
 
             <input
               value={editingClass.code}
               onChange={(e) =>
                 setEditingClass({ ...editingClass, code: e.target.value })
               }
-              className="border p-2 w-full mb-2 rounded"
+              className="border p-2 w-full mb-2 rounded bg-white"
               placeholder="Code"
             />
 
@@ -305,7 +305,7 @@ export default function ClassesPage() {
               onChange={(e) =>
                 setEditingClass({ ...editingClass, name: e.target.value })
               }
-              className="border p-2 w-full mb-4 rounded"
+              className="border p-2 w-full mb-4 rounded bg-white"
               placeholder="Name"
             />
 

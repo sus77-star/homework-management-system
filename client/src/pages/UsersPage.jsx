@@ -370,7 +370,7 @@ export default function UsersPage() {
               onChange={(e) =>
                 setEditingUser({ ...editingUser, name: e.target.value })
               }
-              className="w-full p-2 border rounded mb-2"
+              className="w-full p-2 border rounded mb-2 bg-white"
               placeholder="Name"
             />
 
@@ -379,7 +379,7 @@ export default function UsersPage() {
               onChange={(e) =>
                 setEditingUser({ ...editingUser, username: e.target.value })
               }
-              className="w-full p-2 border rounded mb-2"
+              className="w-full p-2 border rounded mb-2 bg-white"
               placeholder="Username"
             />
 
@@ -388,7 +388,7 @@ export default function UsersPage() {
               onChange={(e) =>
                 setEditingUser({ ...editingUser, email: e.target.value })
               }
-              className="w-full p-2 border rounded mb-2"
+              className="w-full p-2 border rounded mb-2 bg-white"
               placeholder="Email"
             />
 
@@ -398,10 +398,10 @@ export default function UsersPage() {
               onChange={(e) =>
                 setEditingUser({ ...editingUser, newPassword: e.target.value })
               }
-              className="w-full p-2 border rounded mb-1"
+              className="w-full p-2 border rounded mb-1 bg-white"
             />
 
-            <p className="text-xs text-gray-400 mb-2">
+            <p className="text-xs text-gray-600 mb-2 italic">
               Leave blank if you don't want to change password
             </p>
 
@@ -410,7 +410,7 @@ export default function UsersPage() {
               onChange={(e) =>
                 setEditingUser({ ...editingUser, role_id: Number(e.target.value)})
               }
-              className="w-full p-2 border rounded mb-4"
+              className="w-full p-2 border rounded mb-4 bg-white"
             >
               <option value="1">Admin</option>
               <option value="2">Teacher</option>

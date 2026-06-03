@@ -44,6 +44,7 @@ export default function Sidebar() {
   if (role === 'admin') {
     menus = [
       { name: 'Dashboard', path: '/dashboard', icon: <Home size={18} /> },
+      { name: 'Profile', path: '/profile', icon: <Users size={18} /> },
       { name: 'Users', path: '/users', icon: <Users size={18} /> },
       { name: 'Courses', path: '/courses', icon: <Book size={18} /> },
       { name: 'Classes', path: '/classes', icon: <GraduationCap size={18} /> },
@@ -57,6 +58,7 @@ export default function Sidebar() {
   else if (role === 'teacher') {
     menus = [
       { name: 'Dashboard', path: '/dashboard', icon: <Home size={18} /> },
+      { name: 'Profile', path: '/profile', icon: <Users size={18} /> },
       { name: 'Courses', path: '/courses', icon: <Book size={18} /> },
       { name: 'Assignments', path: '/assignments', icon: <FileText size={18} /> },
       { name: 'Submissions', path: '/submissions', icon: <Upload size={18} /> },
@@ -71,6 +73,7 @@ export default function Sidebar() {
   else if (role === 'student') {
     menus = [
       { name: 'Dashboard', path: '/dashboard', icon: <Home size={18} /> },
+      { name: 'Profile', path: '/profile', icon: <Users size={18} /> },
       { name: 'Courses', path: '/courses', icon: <Book size={18} /> },
       { name: 'Assignments', path: '/assignments', icon: <FileText size={18} /> },
       { name: 'Submissions', path: '/submissions', icon: <Upload size={18} /> },

@@ -214,6 +214,19 @@ ADD COLUMN created_at TIMESTAMP DEFAULT NOW(),
 ADD COLUMN reviewed_at TIMESTAMP,
 ADD COLUMN reviewed_by INTEGER REFERENCES users(id);
 
+
+ALTER TABLE users
+ADD COLUMN bio TEXT;
+
+ALTER TABLE users
+ADD COLUMN phone VARCHAR(30);
+
+ALTER TABLE users
+ADD COLUMN github VARCHAR(255);
+
+ALTER TABLE users
+ADD COLUMN linkedin VARCHAR(255);
+
 ALTER TABLE resubmit_requests
 ALTER COLUMN status SET DEFAULT 'pending';
 

@@ -181,7 +181,7 @@ export default function Navbar() {
             onClick={(e) => e.stopPropagation()}
             className="absolute right-20 top-14 w-80 bg-white shadow-xl rounded-xl border z-50"
           >
-            <div className="p-4 border-b font-semibold">
+            <div className="p-4 border-b font-semibold text-gray-800">
               Notifications
             </div>
 
@@ -316,33 +316,52 @@ export default function Navbar() {
               onClick={(e) => e.stopPropagation()}
               className="absolute right-0 mt-3 w-60 bg-white shadow-xl rounded-xl p-4 z-50"
             >
-              <div className="mb-3 border-b pb-3">
-                <p className="font-semibold">{user.name}</p>
-                <p className="text-sm text-gray-500 capitalize">
-                  {user.role}
-                </p>
+<div className="mb-3 border-b pb-3">
 
-                {user.role === 'student' && (
-                  <>
-                    <p className="text-xs text-gray-400 mt-1">
-                      ID: {user.nim}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      Class: {user.class_name || '-'}
-                    </p>
-                  </>
-                )}
+  <p className="font-semibold">
+    {user.name}
+  </p>
 
-                {user.role === 'teacher' && (
-                  <p className="text-xs text-gray-400 mt-1">
-                    ID: {user.nip}
-                  </p>
-                )}
-              </div>
+  <p className="text-sm text-gray-500 capitalize">
+    {user.role}
+  </p>
+
+  <p className="text-xs text-gray-400 mt-1">
+    User ID: #{user.id}
+  </p>
+
+  {user.role === 'student' && (
+    <p className="text-xs text-gray-400">
+      Class: {user.class_name || '-'}
+    </p>
+  )}
+
+</div>
+
+<Link
+  to="/profile"
+  onClick={() => setOpen(false)}
+  className="
+    block
+    py-2 px-2
+    rounded-lg
+    hover:bg-gray-100
+    mb-2
+  "
+>
+  Profile
+</Link>
 
               <button
                 onClick={handleLogout}
-                className="w-full text-left py-2 px-2 rounded-lg text-red-500 hover:bg-gray-100"
+                className="
+                  w-full
+                  text-left
+                  py-2 px-2
+                  rounded-lg
+                  text-red-500
+                  hover:bg-gray-100
+                "
               >
                 Logout
               </button>

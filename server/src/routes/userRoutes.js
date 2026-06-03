@@ -111,12 +111,22 @@ router.get('/me', authMiddleware, async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT 
-        u.name,
-        r.name as role,
-        u.username,
-        u.email,
-        c.name as class_name
+      `SELECT
+      u.id,
+
+      u.name,
+      u.username,
+      u.email,
+
+      u.bio,
+      u.phone,
+      u.github,
+      u.linkedin,
+
+      r.name as role,
+
+      c.name as class_name
+
       FROM users u
       JOIN roles r ON u.role_id = r.id
       LEFT JOIN enrollments e ON e.student_id = u.id
@@ -128,11 +138,22 @@ router.get('/me', authMiddleware, async (req, res) => {
     const user = result.rows[0];
 
     res.json({
+      id: user.id,
+
       name: user.name,
+
+      username: user.username,
+      email: user.email,
+
+      bio: user.bio,
+      phone: user.phone,
+      github: user.github,
+      linkedin: user.linkedin,
+
       role: user.role,
-      nim: user.role === 'student' ? user.username : null,
-      nip: user.role === 'teacher' ? user.username : null,
-      class_name: user.class_name || null
+
+      class_name:
+        user.class_name || null
     });
 
   } catch (err) {
@@ -140,6 +161,151 @@ router.get('/me', authMiddleware, async (req, res) => {
     res.status(500).json({ message: 'Error fetching user' });
   }
 });
+
+router.put(
+  '/me',
+  authMiddleware,
+  async (req, res) => {
+
+    const userId = req.user.id;
+
+    const {
+      username,
+      email,
+
+      bio,
+      phone,
+      github,
+      linkedin
+    } = req.body;
+
+    try {
+
+      await pool.query(
+        `
+        UPDATE users
+        SET
+
+          username = $1,
+          email = $2,
+
+          bio = $3,
+          phone = $4,
+          github = $5,
+          linkedin = $6
+
+        WHERE id = $7
+        `,
+        [
+          username,
+          email,
+
+          bio,
+          phone,
+          github,
+          linkedin,
+
+          userId
+        ]
+      );
+
+      res.json({
+        message:
+          'Profile updated'
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        message:
+          'Update failed'
+      });
+
+    }
+  }
+);
+
+router.put(
+  '/me/password',
+  authMiddleware,
+
+  async (req, res) => {
+
+    const bcrypt =
+      require('bcrypt');
+
+    const userId =
+      req.user.id;
+
+    const {
+      current_password,
+      new_password
+    } = req.body;
+
+    try {
+
+      const result =
+        await pool.query(
+          `
+          SELECT password
+          FROM users
+          WHERE id = $1
+          `,
+          [userId]
+        );
+
+      const valid =
+        await bcrypt.compare(
+          current_password,
+          result.rows[0].password
+        );
+
+      if (!valid) {
+
+        return res.status(400).json({
+          message:
+            'Current password is incorrect'
+        });
+
+      }
+
+      const hashed =
+        await bcrypt.hash(
+          new_password,
+          10
+        );
+
+      await pool.query(
+        `
+        UPDATE users
+        SET password = $1
+        WHERE id = $2
+        `,
+        [
+          hashed,
+          userId
+        ]
+      );
+
+      res.json({
+        message:
+          'Password updated'
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        message:
+          'Update failed'
+      });
+
+    }
+  }
+);
 
 router.get(
   '/login-logs',

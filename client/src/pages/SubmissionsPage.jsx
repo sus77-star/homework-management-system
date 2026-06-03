@@ -778,7 +778,7 @@ export default function SubmissionsPage() {
                         text-gray-800
                       ">
 
-                        {s.score ?? '-'}
+                        {Number(s.score) ?? '-'}
 
                       </span>
 

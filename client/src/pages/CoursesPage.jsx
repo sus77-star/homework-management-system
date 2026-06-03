@@ -103,29 +103,48 @@ export default function CoursesPage() {
   // ==============================
   // FILTER + SORT
   // ==============================
-  const filteredCourses = courses
-    .filter((c) => {
-      const matchSearch =
-        (c.title || '').toLowerCase().includes(search.toLowerCase());
+const filteredCourses = courses
+  .filter((c) => {
 
-      const matchTeacher = teacherFilter === '' ||
-      (c.teacher_name || '').trim() === teacherFilter.trim();
+    const keyword = search.toLowerCase().trim();
 
-      return matchSearch && matchTeacher;
-    })
-    .sort((a, b) => {
-      if (!sortKey) return 0;
+    const matchSearch =
+      (c.title || '')
+        .toLowerCase()
+        .includes(keyword) ||
 
-      let valA = a[sortKey] || '';
-      let valB = b[sortKey] || '';
+      (c.description || '')
+        .toLowerCase()
+        .includes(keyword) ||
 
-      valA = valA.toString().toLowerCase();
-      valB = valB.toString().toLowerCase();
+      (c.teacher_name || '')
+        .toLowerCase()
+        .includes(keyword);
 
-      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
-      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
+    const matchTeacher =
+      !teacherFilter ||
+      (c.teacher_name || '')
+        .toLowerCase()
+        .trim() === teacherFilter
+        .toLowerCase()
+        .trim();
+
+    return matchSearch && matchTeacher;
+  })
+  .sort((a, b) => {
+    if (!sortKey) return 0;
+
+    let valA = a[sortKey] ?? '';
+    let valB = b[sortKey] ?? '';
+
+    valA = valA.toString().toLowerCase();
+    valB = valB.toString().toLowerCase();
+
+    if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+    if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+
+    return 0;
+  });
 
   // ==============================
   // PAGINATION
@@ -139,6 +158,20 @@ export default function CoursesPage() {
     (currentPage - 1) * perPage,
     currentPage * perPage
   );
+
+  const uniqueTeachers = [
+    ...new Map(
+      courses
+        .filter((c) => c.teacher_name)
+        .map((c) => [
+          c.teacher_name,
+          {
+            id: c.teacher_id,
+            name: c.teacher_name
+          }
+        ])
+    ).values()
+  ];
 
   // ==============================
   // CREATE
@@ -242,12 +275,20 @@ export default function CoursesPage() {
         <select
           value={teacherFilter}
           onChange={(e) => setTeacherFilter(e.target.value)}
-          className="p-2 border rounded
-          bg-white focus:ring-2 focus:ring-blue-500"
+          className="
+            p-2 border rounded
+            bg-white focus:ring-2 focus:ring-blue-500
+          "
         >
           <option value="">All Teachers</option>
-          {teachers.map((t) => (
-            <option key={t.id} value={t.name}>{t.name}</option>
+
+          {uniqueTeachers.map((t) => (
+            <option
+              key={t.id || t.name}
+              value={t.name}
+            >
+              {t.name}
+            </option>
           ))}
         </select>
       </div>

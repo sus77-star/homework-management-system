@@ -27,28 +27,81 @@ router.get(
 
         const result = await pool.query(
           `
-          SELECT
-            s.id,
-            s.score,
-            s.grade_letter,
-            s.feedback,
+(
+  SELECT
+    s.id,
+    s.assignment_id,
 
-            a.title AS assignment_title,
-            c.title AS course_title
+    s.score,
+    s.grade_letter,
 
-          FROM submissions s
+    'upload' AS submission_type,
 
-          JOIN assignments a
-            ON a.id = s.assignment_id
+    a.title AS assignment_title,
+    c.title AS course_title
 
-          JOIN courses c
-            ON c.id = a.course_id
+  FROM submissions s
 
-          WHERE
-            s.student_id = $1
-            AND s.score IS NOT NULL
+  JOIN assignments a
+    ON a.id = s.assignment_id
 
-          ORDER BY s.submitted_at DESC
+  JOIN courses c
+    ON c.id = a.course_id
+
+  WHERE
+    s.student_id = $1
+    AND s.score IS NOT NULL
+)
+
+UNION ALL
+
+(
+  SELECT
+
+    MIN(sa.id) AS id,
+
+    a.id AS assignment_id,
+
+    COALESCE(
+      SUM(sa.score),
+      0
+    ) AS score,
+
+    CASE
+      WHEN COALESCE(SUM(sa.score),0) >= 90 THEN 'A'
+      WHEN COALESCE(SUM(sa.score),0) >= 85 THEN 'A-'
+      WHEN COALESCE(SUM(sa.score),0) >= 80 THEN 'B+'
+      WHEN COALESCE(SUM(sa.score),0) >= 75 THEN 'B'
+      WHEN COALESCE(SUM(sa.score),0) >= 70 THEN 'B-'
+      ELSE 'C'
+    END AS grade_letter,
+
+    'quiz' AS submission_type,
+
+    a.title AS assignment_title,
+
+    c.title AS course_title
+
+  FROM student_answers sa
+
+  JOIN questions q
+    ON q.id = sa.question_id
+
+  JOIN assignments a
+    ON a.id = q.assignment_id
+
+  JOIN courses c
+    ON c.id = a.course_id
+
+  WHERE sa.student_id = $1
+
+  GROUP BY
+    a.id,
+    a.title,
+    c.title
+)
+
+ORDER BY score DESC
           `,
           [userId]
         );
@@ -61,33 +114,93 @@ router.get(
       // =========================
       const result = await pool.query(
         `
-        SELECT
-          s.id,
-          s.score,
-          s.grade_letter,
-          s.feedback,
+(
+  SELECT
 
-          u.name AS student_name,
+    s.id,
+    s.assignment_id,
 
-          a.title AS assignment_title,
-          c.title AS course_title
+    s.score,
+    s.grade_letter,
 
-        FROM submissions s
+    'upload' AS submission_type,
 
-        JOIN users u
-          ON u.id = s.student_id
+    u.name AS student_name,
 
-        JOIN assignments a
-          ON a.id = s.assignment_id
+    a.title AS assignment_title,
+    c.title AS course_title
 
-        JOIN courses c
-          ON c.id = a.course_id
+  FROM submissions s
 
-        WHERE
-          c.teacher_id = $1
-          AND s.score IS NOT NULL
+  JOIN users u
+    ON u.id = s.student_id
 
-        ORDER BY s.submitted_at DESC
+  JOIN assignments a
+    ON a.id = s.assignment_id
+
+  JOIN courses c
+    ON c.id = a.course_id
+
+  WHERE
+    c.teacher_id = $1
+    AND s.score IS NOT NULL
+)
+
+UNION ALL
+
+(
+  SELECT
+
+    MIN(sa.id) AS id,
+
+    a.id AS assignment_id,
+
+    COALESCE(
+      SUM(sa.score),
+      0
+    ) AS score,
+
+    CASE
+      WHEN COALESCE(SUM(sa.score),0) >= 90 THEN 'A'
+      WHEN COALESCE(SUM(sa.score),0) >= 85 THEN 'A-'
+      WHEN COALESCE(SUM(sa.score),0) >= 80 THEN 'B+'
+      WHEN COALESCE(SUM(sa.score),0) >= 75 THEN 'B'
+      WHEN COALESCE(SUM(sa.score),0) >= 70 THEN 'B-'
+      ELSE 'C'
+    END AS grade_letter,
+
+    'quiz' AS submission_type,
+
+    u.name AS student_name,
+
+    a.title AS assignment_title,
+
+    c.title AS course_title
+
+  FROM student_answers sa
+
+  JOIN users u
+    ON u.id = sa.student_id
+
+  JOIN questions q
+    ON q.id = sa.question_id
+
+  JOIN assignments a
+    ON a.id = q.assignment_id
+
+  JOIN courses c
+    ON c.id = a.course_id
+
+  WHERE c.teacher_id = $1
+
+  GROUP BY
+    u.name,
+    a.id,
+    a.title,
+    c.title
+)
+
+ORDER BY score DESC
         `,
         [userId]
       );

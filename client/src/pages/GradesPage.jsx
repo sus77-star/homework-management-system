@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import Layout from '../components/Layout';
 import api from '../services/api';
@@ -21,6 +22,20 @@ export default function GradesPage() {
   const [search, setSearch] = useState('');
   const [role, setRole] = useState('');
 
+  const [courseFilter, setCourseFilter] =
+    useState('all');
+
+  const [typeFilter, setTypeFilter] =
+    useState('all');
+
+  const [gradeFilter, setGradeFilter] =
+    useState('all');
+
+  const [currentPage, setCurrentPage] =
+    useState(1);
+
+  const itemsPerPage = 5;
+
   // ==============================
   // INIT
   // ==============================
@@ -42,47 +57,116 @@ export default function GradesPage() {
   // ==============================
   useEffect(() => {
 
-    const keyword = search.toLowerCase();
+    const keyword =
+      search.toLowerCase();
 
-    const result = grades.filter((g) => {
+    const result =
+      grades.filter((g) => {
 
-      if (role === 'teacher') {
+        const matchesSearch =
+
+          role === 'teacher'
+
+            ? (
+
+                g.student_name
+                  ?.toLowerCase()
+                  .includes(keyword)
+
+                ||
+
+                g.assignment_title
+                  ?.toLowerCase()
+                  .includes(keyword)
+
+                ||
+
+                g.course_title
+                  ?.toLowerCase()
+                  .includes(keyword)
+
+              )
+
+            : (
+
+                g.assignment_title
+                  ?.toLowerCase()
+                  .includes(keyword)
+
+                ||
+
+                g.course_title
+                  ?.toLowerCase()
+                  .includes(keyword)
+
+              );
+
+        const matchesCourse =
+
+          courseFilter === 'all'
+
+          ||
+
+          g.course_title ===
+          courseFilter;
+
+        const matchesType =
+
+          typeFilter === 'all'
+
+          ||
+
+          g.submission_type ===
+          typeFilter;
+
+        const matchesGrade =
+
+          gradeFilter === 'all'
+
+          ||
+
+          g.grade_letter ===
+          gradeFilter;
 
         return (
-          g.student_name
-            ?.toLowerCase()
-            .includes(keyword)
 
-          ||
+          matchesSearch
 
-          g.assignment_title
-            ?.toLowerCase()
-            .includes(keyword)
+          &&
 
-          ||
+          matchesCourse
 
-          g.course_title
-            ?.toLowerCase()
-            .includes(keyword)
+          &&
+
+          matchesType
+
+          &&
+
+          matchesGrade
+
         );
-      }
 
-      return (
-        g.assignment_title
-          ?.toLowerCase()
-          .includes(keyword)
-
-        ||
-
-        g.course_title
-          ?.toLowerCase()
-          .includes(keyword)
-      );
-    });
+      });
 
     setFiltered(result);
 
-  }, [search, grades, role]);
+    setCurrentPage(1);
+
+  }, [
+
+    search,
+
+    grades,
+
+    role,
+
+    courseFilter,
+
+    typeFilter,
+
+    gradeFilter
+
+  ]);
 
   // ==============================
   // FETCH
@@ -115,6 +199,34 @@ export default function GradesPage() {
         ) / filtered.length
       ).toFixed(2)
     : 0;
+
+  const courses = [
+
+    ...new Set(
+
+      grades.map(
+        g => g.course_title
+      )
+
+    )
+
+  ];
+
+  const totalPages =
+    Math.ceil(
+      filtered.length /
+      itemsPerPage
+    );
+
+  const startIndex =
+    (currentPage - 1)
+    * itemsPerPage;
+
+  const paginatedGrades =
+    filtered.slice(
+      startIndex,
+      startIndex + itemsPerPage
+    );
 
   return (
     <Layout>
@@ -243,9 +355,110 @@ export default function GradesPage() {
 
       </div>
 
-      {/* ======================
-          TABLE
-      ====================== */}
+      <div
+        className="
+          grid
+          md:grid-cols-3
+          gap-3
+          mb-6
+        "
+      >
+
+        {/* COURSE */}
+
+        <select
+          value={courseFilter}
+          onChange={(e) =>
+            setCourseFilter(
+              e.target.value
+            )
+          }
+          className="
+            border rounded-xl
+            px-4 py-3
+            bg-white
+          "
+        >
+
+          <option value="all">
+            All Courses
+          </option>
+
+          {courses.map(course => (
+
+            <option
+              key={course}
+              value={course}
+            >
+              {course}
+            </option>
+
+          ))}
+
+        </select>
+
+        {/* TYPE */}
+
+        <select
+          value={typeFilter}
+          onChange={(e) =>
+            setTypeFilter(
+              e.target.value
+            )
+          }
+          className="
+            border rounded-xl
+            px-4 py-3
+            bg-white
+          "
+        >
+
+          <option value="all">
+            All Types
+          </option>
+
+          <option value="upload">
+            Upload
+          </option>
+
+          <option value="quiz">
+            Quiz
+          </option>
+
+        </select>
+
+        {/* GRADE */}
+
+        <select
+          value={gradeFilter}
+          onChange={(e) =>
+            setGradeFilter(
+              e.target.value
+            )
+          }
+          className="
+            border rounded-xl
+            px-4 py-3
+            bg-white
+          "
+        >
+
+          <option value="all">
+            All Grades
+          </option>
+
+          <option value="A">A</option>
+          <option value="A-">A-</option>
+          <option value="B+">B+</option>
+          <option value="B">B</option>
+          <option value="B-">B-</option>
+          <option value="C">C</option>
+
+        </select>
+
+      </div>
+
+      {/* TABLE */}
       <div className="
         bg-white rounded-2xl
         shadow overflow-x-auto
@@ -268,20 +481,20 @@ export default function GradesPage() {
                 Assignment
               </th>
 
-              <th className="p-4">
+              <th className="p-4 text-center">
+                Type
+              </th>
+
+              <th className="p-4 text-center">
                 Course
               </th>
 
-              <th className="p-4">
+              <th className="p-4 text-center">
                 Score
               </th>
 
-              <th className="p-4">
+              <th className="p-4 text-center">
                 Grade
-              </th>
-
-              <th className="p-4">
-                Feedback
               </th>
 
             </tr>
@@ -297,8 +510,8 @@ export default function GradesPage() {
                 <td
                   colSpan={
                     role === 'teacher'
-                      ? 6
-                      : 5
+                      ? 7
+                      : 6
                   }
 
                   className="
@@ -314,7 +527,7 @@ export default function GradesPage() {
 
             ) : (
 
-              filtered.map((g) => (
+              paginatedGrades.map((g) => (
 
                 <tr
                   key={g.id}
@@ -370,14 +583,42 @@ export default function GradesPage() {
                         "
                       />
 
-                      <span className="
-                        font-medium
-                        text-gray-800
-                      ">
+                      <Link
+                        to={`/assignments/${g.assignment_id}`}
+                        className="
+                          font-medium
+                          text-blue-600
+                          hover:underline
+                        "
+                      >
                         {g.assignment_title}
-                      </span>
+                      </Link>
 
                     </div>
+
+                  </td>
+
+                  {/* TYPE */}
+                  <td className="p-4">
+
+                    <span
+                      className={`
+                        px-3 py-1
+                        rounded-full
+                        text-xs
+                        font-medium
+
+                        ${
+                          g.submission_type === 'quiz'
+                            ? 'bg-purple-100 text-purple-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }
+                      `}
+                    >
+                      {g.submission_type === 'quiz'
+                        ? 'Quiz'
+                        : 'Upload'}
+                    </span>
 
                   </td>
 
@@ -387,6 +628,7 @@ export default function GradesPage() {
                     <div className="
                       flex items-center
                       gap-2
+                      justify-center
                     ">
 
                       <BookOpen
@@ -413,7 +655,7 @@ export default function GradesPage() {
                       text-lg font-bold
                       text-gray-800
                     ">
-                      {g.score}
+                      {Number(g.score)}
                     </span>
 
                   </td>
@@ -438,19 +680,7 @@ export default function GradesPage() {
 
                   </td>
 
-                  {/* FEEDBACK */}
-                  <td className="p-4">
 
-                    <p className="
-                      text-sm text-gray-600
-                      max-w-xs
-                    ">
-
-                      {g.feedback || '-'}
-
-                    </p>
-
-                  </td>
 
                 </tr>
               ))
@@ -459,6 +689,67 @@ export default function GradesPage() {
           </tbody>
 
         </table>
+
+        {totalPages > 1 && (
+
+          <div
+            className="
+              flex
+              justify-center
+              items-center
+              gap-3
+              py-5
+            "
+          >
+
+            <button
+              disabled={
+                currentPage === 1
+              }
+              onClick={() =>
+                setCurrentPage(
+                  currentPage - 1
+                )
+              }
+              className="
+                px-4 py-2
+                border
+                rounded-lg
+                disabled:opacity-50
+              "
+            >
+              Prev
+            </button>
+
+            <span>
+              Page {currentPage}
+              {' / '}
+              {totalPages}
+            </span>
+
+            <button
+              disabled={
+                currentPage ===
+                totalPages
+              }
+              onClick={() =>
+                setCurrentPage(
+                  currentPage + 1
+                )
+              }
+              className="
+                px-4 py-2
+                border
+                rounded-lg
+                disabled:opacity-50
+              "
+            >
+              Next
+            </button>
+
+          </div>
+
+        )}
 
       </div>
 

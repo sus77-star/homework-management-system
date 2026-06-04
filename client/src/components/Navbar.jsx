@@ -95,7 +95,7 @@ export default function Navbar() {
 
       const res =
         await api.get(
-          '/notifications'
+          '/notifications/recent'
         );
 
       setNotifications(

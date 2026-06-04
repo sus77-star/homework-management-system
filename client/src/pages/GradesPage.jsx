@@ -721,7 +721,7 @@ export default function GradesPage() {
               Prev
             </button>
 
-            <span>
+            <span className='font-medium'>
               Page {currentPage}
               {' / '}
               {totalPages}

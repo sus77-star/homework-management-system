@@ -10,33 +10,102 @@ router.get(
   authMiddleware,
   async (req, res) => {
 
-    try {
+    const userId = req.user.id;
 
-      const result =
-        await pool.query(
-          `
-          SELECT *
-          FROM notifications
-          WHERE user_id = $1
-          ORDER BY created_at DESC
-          `,
-          [req.user.id]
-        );
+    const page =
+      parseInt(req.query.page) || 1;
 
-      res.json(
-        result.rows
+    const limit = 5;
+
+    const offset =
+      (page - 1) * limit;
+
+    const search =
+      req.query.search || '';
+
+    const status =
+      req.query.status || 'all';
+
+    let conditions =
+      ['user_id = $1'];
+
+    let values =
+      [userId];
+
+    let idx = 2;
+
+    if (search) {
+
+      conditions.push(`
+        (
+          title ILIKE $${idx}
+          OR
+          message ILIKE $${idx}
+        )
+      `);
+
+      values.push(`%${search}%`);
+
+      idx++;
+    }
+
+    if (status === 'unread') {
+
+      conditions.push(
+        `is_read = false`
       );
 
-    } catch (err) {
+    }
 
-      console.error(err);
+    if (status === 'read') {
 
-      res.status(500).json({
-        message:
-          'Error fetching notifications'
-      });
+      conditions.push(
+        `is_read = true`
+      );
 
     }
+
+    const where =
+      conditions.join(' AND ');
+
+    const totalResult =
+      await pool.query(
+        `
+        SELECT COUNT(*)
+        FROM notifications
+        WHERE ${where}
+        `,
+        values
+      );
+
+    values.push(limit);
+    values.push(offset);
+
+    const result =
+      await pool.query(
+        `
+        SELECT *
+        FROM notifications
+        WHERE ${where}
+        ORDER BY created_at DESC
+        LIMIT $${idx}
+        OFFSET $${idx + 1}
+        `,
+        values
+      );
+
+    res.json({
+      notifications:
+        result.rows,
+
+      total:
+        Number(
+          totalResult.rows[0].count
+        ),
+
+      page,
+      limit
+    });
 
   }
 );
@@ -143,6 +212,30 @@ router.delete(
       message:
         'Read notifications cleared'
     });
+
+  }
+);
+
+router.get(
+  '/recent',
+  authMiddleware,
+  async (req, res) => {
+
+    const result =
+      await pool.query(
+        `
+        SELECT *
+        FROM notifications
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT 5
+        `,
+        [req.user.id]
+      );
+
+    res.json(
+      result.rows
+    );
 
   }
 );

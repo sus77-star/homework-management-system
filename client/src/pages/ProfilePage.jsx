@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import {
+  User,
+  Hash,
+  School,
+  Lock,
+  Save
+} from 'lucide-react';
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
@@ -64,6 +71,26 @@ export default function ProfilePage() {
 
   const updateProfile = async () => {
     try {
+      if (
+        form.github &&
+        !form.github.includes('github.com')
+      ) {
+        toast.error(
+          'Invalid Github URL'
+        );
+        return;
+      }
+
+      if (
+        form.linkedin &&
+        !form.linkedin.includes('linkedin.com')
+      ) {
+        toast.error(
+          'Invalid LinkedIn URL'
+        );
+        return;
+      }
+
       await api.put('/users/me', {
         username: form.username,
         email: form.email,
@@ -114,357 +141,470 @@ export default function ProfilePage() {
 
   return (
     <Layout>
+        <div className="space-y-6">
 
-      {/*PROFILE HEADER*/}
-      <div className="bg-white rounded-2xl shadow p-6">
+          {/* HEADER */}
+          <div className="bg-white rounded-3xl shadow-sm border p-8">
 
-        <div className="flex justify-between items-center">
+            <div className="flex flex-col lg:flex-row justify-between items-center gap-8">
 
-          <div>
+              <div className="flex items-center gap-8">
 
-            <h1 className="text-2xl font-bold text-black">
-              {user?.name}
-            </h1>
+                <div
+                  className="
+                    h-32
+                    w-32
+                    rounded-full
+                    bg-blue-100
+                    flex
+                    items-center
+                    justify-center
+                    text-6xl
+                    font-bold
+                    text-blue-700
+                  "
+                >
+                  {user?.name?.charAt(0)}
+                </div>
 
-            <span
-              className="
-                inline-flex
-                mt-2
+                <div>
 
-                px-3 py-1
+                  <h1 className="text-3xl font-bold text-gray-900 mb-3">
+                    {user?.name}
+                  </h1>
 
-                rounded-full
+                  <span
+                    className="
+                      inline-flex
+                      px-4
+                      py-1.5
+                      rounded-full
+                      text-sm
+                      font-medium
+                      bg-blue-100
+                      text-blue-700
+                    "
+                  >
+                    {user?.role}
+                  </span>
 
-                text-sm
+                  <p className="mt-4 text-gray-500">
+                    Welcome back! Keep learning and improving
+                  </p>
 
-                bg-blue-100
-                text-blue-700
-              "
-            >
-              {user?.role}
-            </span>
+                </div>
+
+              </div>
+
+              <div className="text-right">
+
+                <p className="text-gray-500 text-lg">
+                  User ID
+                </p>
+
+                <p className="text-3xl font-bold text-gray-900">
+                  #{user?.id}
+                </p>
+
+              </div>
+
+            </div>
 
           </div>
 
-          <div className="text-right">
+          {/* STATS */}
+          <div className="grid md:grid-cols-3 gap-6">
 
-            <p className="text-sm text-gray-500">
-              User ID
-            </p>
+            <div className="bg-white rounded-3xl shadow-sm border p-8">
 
-            <p className="font-semibold">
-              #{user?.id}
-            </p>
+              <div className="flex items-center gap-5">
+
+                <div
+                  className="
+                    h-16
+                    w-16
+                    rounded-2xl
+                    bg-blue-50
+                    flex
+                    items-center
+                    justify-center
+                    text-3xl
+                  "
+                >
+                  <User
+                    size={30}
+                    className="text-blue-600"
+                  />
+                </div>
+
+                <div>
+
+                  <p className="text-gray-500">
+                    Role
+                  </p>
+
+                  <p className="text-3xl font-bold capitalize text-gray-900">
+                    {user?.role}
+                  </p>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            <div className="bg-white rounded-3xl shadow-sm border p-8">
+
+              <div className="flex items-center gap-5">
+
+                <div
+                  className="
+                    h-16
+                    w-16
+                    rounded-2xl
+                    bg-blue-50
+                    flex
+                    items-center
+                    justify-center
+                    text-3xl
+                  "
+                >
+                  <Hash
+                    size={30}
+                    className="text-blue-600"
+                  />
+                </div>
+
+                <div>
+
+                  <p className="text-gray-500">
+                    User ID
+                  </p>
+
+                  <p className="text-3xl font-bold text-gray-900">
+                    #{user?.id}
+                  </p>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            <div className="bg-white rounded-3xl shadow-sm border p-8">
+
+              <div className="flex items-center gap-5">
+
+                <div
+                  className="
+                    h-16
+                    w-16
+                    rounded-2xl
+                    bg-blue-50
+                    flex
+                    items-center
+                    justify-center
+                    text-3xl
+                  "
+                >
+                  <School
+                    size={30}
+                    className="text-blue-600"
+                  />
+                </div>
+
+                <div>
+
+                  <p className="text-gray-500">
+                    Class
+                  </p>
+
+                  <p className="text-3xl font-bold text-gray-900">
+                    {user?.class_name || '-'}
+                  </p>
+
+                </div>
+
+              </div>
+
+            </div>
 
           </div>
 
-        </div>
+          {/* MAIN CONTENT */}
+          <div className="grid lg:grid-cols-3 gap-6">
 
-      </div>
-      
-<div
-  className="
-    grid
-    md:grid-cols-3
-    gap-4
-    mt-6
-  "
->
+            {/* LEFT */}
+            <div className="lg:col-span-2">
 
-  <div className="bg-white p-5 rounded-2xl shadow">
-    <p className="text-sm text-gray-500">
-      Role
-    </p>
+              <div className="bg-white rounded-3xl shadow-sm border p-8">
 
-    <p className="text-2xl font-bold capitalize">
-      {user?.role}
-    </p>
-  </div>
+                <h2 className="text-3xl font-bold text-gray-900 mb-8">
+                  Personal Information
+                </h2>
 
-  <div className="bg-white p-5 rounded-2xl shadow">
-    <p className="text-sm text-gray-500">
-      User ID
-    </p>
+                <div className="grid md:grid-cols-4 gap-5">
 
-    <p className="text-2xl font-bold">
-      #{user?.id}
-    </p>
-  </div>
+                  <div>
+                    <label className="block mb-2 text-gray-500">
+                      Name
+                    </label>
 
-  <div className="bg-white p-5 rounded-2xl shadow">
-    <p className="text-sm text-gray-500">
-      Class
-    </p>
+                    <input
+                      value={form.name}
+                      disabled
+                      className="
+                        w-full
+                        p-4
+                        rounded-xl
+                        border
+                        bg-gray-100
+                      "
+                    />
+                  </div>
 
-    <p className="text-2xl font-bold">
-      {user?.class_name || '-'}
-    </p>
-  </div>
+                  <div>
+                    <label className="block mb-2 text-gray-500">
+                      Username
+                    </label>
 
-</div>
+                    <input
+                      name="username"
+                      value={form.username}
+                      onChange={handleChange}
+                      className="
+                        w-full
+                        p-4
+                        rounded-xl
+                        border
+                      "
+                    />
+                  </div>
 
-      <div className="space-y-6">
+                  <div>
+                    <label className="block mb-2 text-gray-500">
+                      Email
+                    </label>
 
-        <div className="bg-white p-6 rounded-xl shadow">
-          <h2 className="text-xl font-semibold mb-4 text-black">Personal Information</h2>
+                    <input
+                      name="email"
+                      value={form.email}
+                      onChange={handleChange}
+                      className="
+                        w-full
+                        p-4
+                        rounded-xl
+                        border
+                      "
+                    />
+                  </div>
 
-          <div className="grid gap-4 md:grid-cols-4">
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-gray-700">Name</span>
-              <input
-                value={form.name}
-                disabled
-                className="w-full p-3 border rounded-lg bg-gray-100 text-gray-500"
-              />
-            </label>
+                  <div>
+                    <label className="block mb-2 text-gray-500">
+                      Role
+                    </label>
 
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-gray-700">Username</span>
-              <input
-                name="username"
-                value={form.username}
-                onChange={handleChange}
+                    <input
+                      value={user?.role}
+                      disabled
+                      className="
+                        w-full
+                        p-4
+                        rounded-xl
+                        border
+                        bg-gray-100
+                      "
+                    />
+                  </div>
 
+                </div>
+
+                {/* BIO + PHONE */}
+                <div className="grid md:grid-cols-2 gap-5 mt-6">
+
+                  <div>
+                    <label className="block mb-2 text-gray-500">
+                      Bio
+                    </label>
+
+                    <textarea
+                      rows={3}
+                      name="bio"
+                      value={form.bio}
+                      onChange={handleChange}
+                      className="
+                        w-full
+                        p-4
+                        rounded-xl
+                        border
+                        resize-none
+                      "
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block mb-2 text-gray-500">
+                      Phone
+                    </label>
+
+                    <input
+                      name="phone"
+                      value={form.phone}
+                      onChange={handleChange}
+                      className="
+                        w-full
+                        p-4
+                        rounded-xl
+                        border
+                      "
+                    />
+                  </div>
+
+                </div>
+
+                {/* SOCIAL */}
+                <div className="grid md:grid-cols-2 gap-5 mt-6">
+
+                  <div>
+                    <label className="block mb-2 text-gray-500">
+                      GitHub
+                    </label>
+
+                    <input
+                      name="github"
+                      value={form.github}
+                      onChange={handleChange}
+                      className="
+                        w-full
+                        p-4
+                        rounded-xl
+                        border
+                      "
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block mb-2 text-gray-500">
+                      LinkedIn
+                    </label>
+
+                    <input
+                      name="linkedin"
+                      value={form.linkedin}
+                      onChange={handleChange}
+                      className="
+                        w-full
+                        p-4
+                        rounded-xl
+                        border
+                      "
+                    />
+                  </div>
+
+                </div>
+
+                <div className="flex justify-end mt-8">
+
+                  <button
+                    onClick={updateProfile}
+                    className="
+                      bg-blue-600
+                      hover:bg-blue-700
+                      text-white
+                      px-8
+                      py-4
+                      rounded-xl
+                      font-semibold
+                      flex
+                      items-center
+                      gap-2
+                    "
+                  >
+                    <Save size={18} />
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* PASSWORD CARD */}
+            <div>
+
+              <div
                 className="
-                  w-full p-3
-                  border rounded-lg
-                  bg-gray-100
-                  text-gray-500
+                  bg-white
+                  rounded-3xl
+                  shadow-sm
+                  border
+                  p-8
                 "
-              />
-            </label>
+              >
 
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-gray-700">Email</span>
-              <input
-                name="email"
-                value={form.email}
-                onChange={handleChange}
-                className="w-full p-3 border rounded-lg bg-gray-100 text-gray-500"
-              />
-            </label>
+                <h2 className="text-3xl font-bold text-gray-900 mb-8">
+                  Change Password
+                </h2>
 
-            <label className="space-y-2">
+                <div className="space-y-5">
 
-              <span className="
-                text-sm font-medium
-                text-gray-700
-              ">
-                Role
-              </span>
+                  <input
+                    type="password"
+                    name="current_password"
+                    value={passwordForm.current_password}
+                    onChange={handlePasswordChange}
+                    placeholder="Enter current password"
+                    className="
+                      w-full
+                      p-4
+                      rounded-xl
+                      border
+                    "
+                  />
 
-              <input
-                value={user?.role || ''}
-                disabled
+                  <input
+                    type="password"
+                    name="new_password"
+                    value={passwordForm.new_password}
+                    onChange={handlePasswordChange}
+                    placeholder="Enter new password"
+                    className="
+                      w-full
+                      p-4
+                      rounded-xl
+                      border
+                    "
+                  />
 
-                className="
-                  w-full p-3
-                  border rounded-lg
-                  bg-gray-100
-                  text-gray-500
-                "
-              />
+                  <button
+                    onClick={updatePassword}
+                    className="
+                      w-full
+                      bg-blue-600
+                      hover:bg-blue-700
+                      text-white
+                      py-4
+                      rounded-xl
+                      font-semibold
+                      flex
+                      items-center
+                      justify-center
+                      gap-2
+                    "
+                  >
+                    <Lock size={18} />
+                    Change Password
+                  </button>
 
-            </label>
+                </div>
 
-          </div>
-        </div>
+              </div>
 
-        <div className="bg-white p-6 rounded-xl shadow">
-
-          <h2 className="
-            text-xl font-semibold
-            mb-4
-            text-black
-          ">
-            About Me
-          </h2>
-
-          <p className="text-sm text-gray-500 mb-4">
-            Share a short introduction
-            about yourself, your interests,
-            academic background, or goals.
-          </p>
-
-          <textarea
-            name="bio"
-            value={form.bio}
-            onChange={handleChange}
-
-            rows={5}
-
-            placeholder="Share a short introduction about yourself
-            "
-
-            className="
-              w-full
-              border
-              rounded-xl
-              p-4
-              
-              bg-gray-100
-            "
-          />
-
-
-        </div>
-      <div className="bg-white p-6 rounded-xl shadow">
-
-        <h2 className="text-xl font-semibold mb-4 text-black">
-          Academic Information
-        </h2>
-
-        <div className="grid md:grid-cols-2 gap-4">
-
-          <div className="
-            bg-gray-50
-            border
-            rounded-xl
-            p-4
-          ">
-            <p className="text-sm text-gray-500">
-              User ID
-            </p>
-
-            <p className="text-lg font-semibold">
-              #{user?.id}
-            </p>
-          </div>
-
-          {user?.role === 'student' && (
-
-            <div className="
-              bg-gray-50
-              border
-              rounded-xl
-              p-4
-            ">
-              <p className="text-sm text-gray-500">
-                Class
-              </p>
-
-              <p className="text-lg font-semibold">
-                {user?.class_name || '-'}
-              </p>
-            </div>
-
-          )}
-
-        </div>
-      </div>
-
-        <div className="bg-white p-6 rounded-xl shadow">
-
-          <h2 className="text-xl font-semibold mb-4 text-black">
-            Contact Information
-          </h2>
-
-          <div className="grid md:grid-cols-3 gap-4 mt-6">
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Phone Number
-              </label>
-
-              <input
-                name="phone"
-                value={form.phone}
-                onChange={handleChange}
-                placeholder="Phone Number"
-                className="w-full p-3 border rounded-lg bg-gray-100 text-gray-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Github
-              </label>
-
-              <input
-                name="github"
-                value={form.github}
-                onChange={handleChange}
-                placeholder="Github URL"
-                className="w-full p-3 border rounded-lg bg-gray-100 text-gray-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                LinkedIn
-              </label>
-
-              <input
-                name="linkedin"
-                value={form.linkedin}
-                onChange={handleChange}
-                placeholder="LinkedIn URL"
-                className="w-full p-3 border rounded-lg bg-gray-100 text-gray-500"
-              />
             </div>
 
           </div>
 
-          <div className="mt-5 flex justify-end">
-
-            <button
-              onClick={updateProfile}
-              className="
-                bg-blue-600
-                hover:bg-blue-700
-
-                text-white
-
-                px-6 py-3
-
-                rounded-xl
-
-                font-medium
-              "
-            >
-              Save Changes
-            </button>
-
-          </div>
-
         </div>
-
-        <div className="bg-white p-6 rounded-xl shadow">
-          <h2 className="text-xl font-semibold mb-4 text-black">Change Password</h2>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-gray-700">Current Password</span>
-              <input
-                type="password"
-                name="current_password"
-                value={passwordForm.current_password}
-                onChange={handlePasswordChange}
-                className="w-full p-3 border rounded-lg bg-gray-100 text-gray-500"
-              />
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-gray-700">New Password</span>
-              <input
-                type="password"
-                name="new_password"
-                value={passwordForm.new_password}
-                onChange={handlePasswordChange}
-                className="w-full p-3 border rounded-lg bg-gray-100 text-gray-500"
-              />
-            </label>
-          </div>
-
-          <button
-            onClick={updatePassword}
-            className="mt-4 bg-green-600 text-white px-5 py-3 rounded-lg hover:bg-green-700"
-          >
-            Change Password
-          </button>
-        </div>
-
-      </div>
     </Layout>
   );
 }

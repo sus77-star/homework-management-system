@@ -105,89 +105,140 @@ router.get(
       // =========================
       // TEACHER
       // =========================
-      if (role === 'teacher') {
+if (role === 'teacher') {
 
-        const [
-          assignments,
-          submissions,
-          pendingRequests,
-          averageScore
-        ] = await Promise.all([
+const [
+assignments,
+submissions,
+pendingRequests,
+averageScore,
+pendingUploadReview,
+pendingQuizReview
+] = await Promise.all([
 
-          pool.query(
-            `
-            SELECT COUNT(*)
-            FROM assignments
-            WHERE created_by = $1
-            `,
-            [userId]
-          ),
 
-          pool.query(
-            `
-            SELECT COUNT(*)
-            FROM submissions s
+pool.query(
+  `
+  SELECT COUNT(*)
+  FROM assignments
+  WHERE created_by = $1
+  `,
+  [userId]
+),
 
-            JOIN assignments a
-              ON a.id = s.assignment_id
+pool.query(
+  `
+  SELECT COUNT(*)
+  FROM submissions s
+  JOIN assignments a
+    ON a.id = s.assignment_id
+  WHERE a.created_by = $1
+  `,
+  [userId]
+),
 
-            WHERE a.created_by = $1
-            `,
-            [userId]
-          ),
+pool.query(
+  `
+  SELECT COUNT(*)
+  FROM resubmit_requests rr
+  JOIN submissions s
+    ON s.id = rr.submission_id
+  JOIN assignments a
+    ON a.id = s.assignment_id
+  WHERE
+    rr.status = 'pending'
+    AND a.created_by = $1
+  `,
+  [userId]
+),
 
-          pool.query(
-            `
-            SELECT COUNT(*)
-            FROM resubmit_requests rr
+pool.query(
+  `
+  SELECT ROUND(
+    AVG(score),
+    2
+  ) AS avg
+  FROM submissions s
+  JOIN assignments a
+    ON a.id = s.assignment_id
+  WHERE
+    a.created_by = $1
+    AND score IS NOT NULL
+  `,
+  [userId]
+),
 
-            JOIN submissions s
-              ON s.id = rr.submission_id
+/* Upload Assignment Review */
+pool.query(
+  `
+  SELECT COUNT(*)::int AS total
 
-            JOIN assignments a
-              ON a.id = s.assignment_id
+  FROM submissions s
 
-            WHERE
-              rr.status = 'pending'
-              AND a.created_by = $1
-            `,
-            [userId]
-          ),
+  JOIN assignments a
+    ON a.id = s.assignment_id
 
-          pool.query(
-            `
-            SELECT ROUND(
-              AVG(score), 2
-            ) AS avg
-            FROM submissions s
+  WHERE
+    a.created_by = $1
+    AND a.type = 'upload'
+    AND s.score IS NULL
+  `,
+  [userId]
+),
 
-            JOIN assignments a
-              ON a.id = s.assignment_id
+/* Quiz Subjective Review */
+pool.query(
+  `
+  SELECT COUNT(
+    DISTINCT sa.student_id
+  )::int AS total
 
-            WHERE
-              a.created_by = $1
-              AND score IS NOT NULL
-            `,
-            [userId]
-          )
+  FROM student_answers sa
 
-        ]);
+  JOIN questions q
+    ON q.id = sa.question_id
 
-        return res.json({
+  JOIN assignments a
+    ON a.id = q.assignment_id
 
-          assignments:
-            assignments.rows[0].count,
+  WHERE
+    a.created_by = $1
+    AND q.question_type = 'subjective'
+    AND sa.score IS NULL
+  `,
+  [userId]
+)
 
-          submissions:
-            submissions.rows[0].count,
 
-          pending_requests:
-            pendingRequests.rows[0].count,
+]);
 
-          average_score:
-            averageScore.rows[0].avg || 0
-        });
-      }
+return res.json({
+
+
+assignments:
+  assignments.rows[0].count,
+
+submissions:
+  submissions.rows[0].count,
+
+pending_review:
+  Number(
+    pendingUploadReview.rows[0].total
+  ) +
+  Number(
+    pendingQuizReview.rows[0].total
+  ),
+
+pending_requests:
+  pendingRequests.rows[0].count,
+
+average_score:
+  averageScore.rows[0].avg || 0
+
+
+});
+}
+
 
       // =========================
       // STUDENT
@@ -358,30 +409,90 @@ router.get(
           [userId]
         );
 
-        const pending = await pool.query(
-          `
-          SELECT COUNT(*)::int AS total
+const pendingUploadReview = await pool.query(
+`
+SELECT COUNT(*)::int AS total
 
-          FROM submissions s
+FROM submissions s
 
-          JOIN assignments a
-            ON a.id = s.assignment_id
+JOIN assignments a
+ON a.id = s.assignment_id
 
-          JOIN courses c
-            ON c.id = a.course_id
+JOIN courses c
+ON c.id = a.course_id
 
-          WHERE
-            c.teacher_id = $1
-            AND s.status != 'graded'
-          `,
-          [userId]
-        );
+WHERE
+c.teacher_id = $1
+AND a.type = 'upload'
+AND s.score IS NULL
+`,
+[userId]
+);
 
-        return res.json({
-          grades: grades.rows,
-          pending:
-            pending.rows[0].total
-        });
+const pendingQuizReview = await pool.query(
+`
+SELECT COUNT(
+DISTINCT sa.student_id
+)::int AS total
+
+FROM student_answers sa
+
+JOIN questions q
+ON q.id = sa.question_id
+
+JOIN assignments a
+ON a.id = q.assignment_id
+
+JOIN courses c
+ON c.id = a.course_id
+
+WHERE
+c.teacher_id = $1
+AND q.question_type = 'subjective'
+AND sa.score IS NULL
+`,
+[userId]
+);
+
+const pendingRequests = await pool.query(
+`
+SELECT COUNT(*)::int AS total
+
+FROM resubmit_requests rr
+
+JOIN submissions s
+ON s.id = rr.submission_id
+
+JOIN assignments a
+ON a.id = s.assignment_id
+
+JOIN courses c
+ON c.id = a.course_id
+
+WHERE
+c.teacher_id = $1
+AND rr.status = 'pending'
+`,
+[userId]
+);
+
+return res.json({
+
+grades: grades.rows,
+
+pending_review:
+Number(
+pendingUploadReview.rows[0].total
+) +
+Number(
+pendingQuizReview.rows[0].total
+),
+
+pending_requests:
+pendingRequests.rows[0].total
+
+});
+
       }
 
       // =========================

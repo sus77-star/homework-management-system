@@ -313,17 +313,17 @@ export default function CourseDetail() {
       <ArrowLeft size={22} />
     </button>
 
-      <h2 className="text-xl font-semibold mb-2">
+      <h2 className="text-xl font-semibold mb-2 text-center">
         {course?.title}
       </h2>
 
-      <p className="text-gray-600 mb-6">
+      <p className="text-gray-600 mb-6 text-center">
         {course?.description}
       </p>
 
-<div className="mb-6">
+<div className="mb-6 text-center">
 
-  <h3 className="font-semibold text-gray-700 mb-4">
+  <h3 className="font-semibold text-gray-700 mb-4 text">
     Assignment Information
   </h3>
 

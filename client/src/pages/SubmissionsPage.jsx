@@ -525,35 +525,35 @@ export default function SubmissionsPage() {
                 </th>
               )}
 
-              <th className="p-4 text-center">
+              <th className="p-4">
                 Assignment
               </th>
               
-              <th className="p-4 text-center">
+              <th className="p-4">
                 Type
               </th>
 
-              <th className="p-4 text-center">
+              <th className="p-4">
                 Course
               </th>
 
-              <th className="p-4 text-center">
+              <th className="p-4">
                 Submitted
               </th>
 
-              <th className="p-4 text-center">
+              <th className="p-4">
                 Status
               </th>
 
-              <th className="p-4 text-center">
+              <th className="p-4">
                 Score
               </th>
 
-              <th className="p-4 text-center">
+              <th className="p-4">
                 Grade
               </th>
 
-              <th className="p-4 text-center">
+              <th className="p-4">
                 File
               </th>
 

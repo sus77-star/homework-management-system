@@ -1595,11 +1595,13 @@ for (const q of questions) {
 {role === 'teacher' && editMode && (
 
   <div className="
-    bg-gray-50
+    bg-white
     border
     rounded-2xl
     p-5 mt-6
     space-y-4
+    mb-6
+
   ">
 
     <h3 className="font-semibold text-lg">

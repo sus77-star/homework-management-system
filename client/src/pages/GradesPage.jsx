@@ -481,19 +481,19 @@ export default function GradesPage() {
                 Assignment
               </th>
 
-              <th className="p-4 text-center">
+              <th className="p-4">
                 Type
               </th>
 
-              <th className="p-4 text-center">
+              <th className="p-4 justify-center">
                 Course
               </th>
 
-              <th className="p-4 text-center">
+              <th className="p-4">
                 Score
               </th>
 
-              <th className="p-4 text-center">
+              <th className="p-4">
                 Grade
               </th>
 
@@ -628,7 +628,6 @@ export default function GradesPage() {
                     <div className="
                       flex items-center
                       gap-2
-                      justify-center
                     ">
 
                       <BookOpen

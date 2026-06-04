@@ -32,12 +32,15 @@ import {
   Line
 } from 'recharts';
 
+import { useNavigate } from 'react-router-dom';
+
+
 
 export default function Dashboard() {
 
   const [stats, setStats] = useState(null);
   const [role, setRole] = useState('');
-
+  const navigate = useNavigate();
   // ==============================
   // INIT
   // ==============================
@@ -527,6 +530,49 @@ export default function Dashboard() {
         </div>
       )}
 
+
+{role === 'teacher' && (
+
+  <div className="
+    flex flex-wrap
+    gap-3
+    mb-6
+  ">
+
+    <button
+      onClick={() =>
+        navigate('/assignments?review=needs_review')
+      }
+      className="
+        px-4 py-2
+        bg-yellow-100
+        text-yellow-700
+        rounded-xl
+        font-medium
+      "
+    >
+      Review ({stats.pending_review})
+    </button>
+
+    <button
+      onClick={() =>
+        navigate('/assignments?review=has_requests')
+      }
+      className="
+        px-4 py-2
+        bg-orange-100
+        text-orange-700
+        rounded-xl
+        font-medium
+      "
+    >
+      Requests ({stats.pending_requests})
+    </button>
+
+  </div>
+
+)}
+
       {/* ======================
           TEACHER DASHBOARD
       ====================== */}
@@ -561,7 +607,7 @@ export default function Dashboard() {
                 bg-blue-100 text-blue-700
                 px-3 py-1 rounded-full
               ">
-                ASSIGNMENTS
+                REVIEW
               </span>
 
             </div>
@@ -570,12 +616,13 @@ export default function Dashboard() {
               text-3xl font-bold
               text-gray-800
             ">
-              {stats.assignments}
+              {stats.pending_review}
             </h2>
 
             <p className="text-gray-500 mt-1">
-              Created assignments
+              Submissions waiting review
             </p>
+
 
           </div>
 
@@ -753,36 +800,113 @@ export default function Dashboard() {
           </div>
 
           {/* PENDING */}
-          <div className="
-            bg-white rounded-2xl
-            shadow p-6
+<div
+  className="
+    bg-white
+    rounded-2xl
+    shadow
+    p-6
+  "
+>
 
-            flex flex-col
-            justify-center
-            items-center
-          ">
+  <h2
+    className="
+      text-lg
+      font-semibold
+      text-gray-800
+      mb-6
+    "
+  >
+    Teacher Inbox
+  </h2>
 
-            <h2 className="
-              text-lg font-semibold
-              text-gray-800 mb-4
-            ">
-              Pending Grading
-            </h2>
+  <div className="space-y-4">
 
-            <h1 className="
-              text-7xl font-bold
-              text-yellow-500
-            ">
-              {analytics.pending}
-            </h1>
+    <div className="
+      flex
+      justify-between
+      items-center
+      pb-3
+      border-b
+    ">
 
-            <p className="
-              text-gray-500 mt-3
-            ">
-              submissions waiting review
-            </p>
+      <span className="text-gray-600">
+        Needs Review
+      </span>
 
-          </div>
+      <span className="
+        font-bold
+        text-yellow-600
+      ">
+        {analytics.pending_review}
+      </span>
+
+    </div>
+
+    <div className="
+      flex
+      justify-between
+      items-center
+      pb-3
+      border-b
+    ">
+
+      <span className="text-gray-600">
+        Resubmit Requests
+      </span>
+
+      <span className="
+        font-bold
+        text-orange-600
+      ">
+        {analytics.pending_requests}
+      </span>
+
+    </div>
+
+    <div className="
+      flex
+      justify-between
+      items-center
+      pb-3
+      border-b
+    ">
+
+      <span className="text-gray-600">
+        Total Submissions
+      </span>
+
+      <span className="
+        font-bold
+        text-green-600
+      ">
+        {stats.submissions}
+      </span>
+
+    </div>
+
+    <div className="
+      flex
+      justify-between
+      items-center
+    ">
+
+      <span className="text-gray-600">
+        Average Score
+      </span>
+
+      <span className="
+        font-bold
+        text-blue-600
+      ">
+        {stats.average_score}
+      </span>
+
+    </div>
+
+  </div>
+
+</div>
 
         </div>
       )}

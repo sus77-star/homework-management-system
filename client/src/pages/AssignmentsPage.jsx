@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import {
-  useNavigate
-} from 'react-router-dom';
+import {useNavigate, Link, useSearchParams} from 'react-router-dom';
 
 import Layout from '../components/Layout';
 import api from '../services/api';
@@ -21,6 +19,11 @@ export default function AssignmentsPage() {
 
   const navigate = useNavigate();
 
+  const [searchParams] = useSearchParams();
+
+  const reviewQuery =
+  searchParams.get('review');
+
   const [assignments, setAssignments] = useState([]);
   const [search, setSearch] = useState('');
   const [role, setRole] = useState('');
@@ -33,6 +36,26 @@ export default function AssignmentsPage() {
 
   const [statusFilter, setStatusFilter] =
     useState('all');
+
+  const [reviewFilter, setReviewFilter] =
+    useState('all');
+
+  useEffect(() => {
+
+  if (
+    reviewQuery &&
+    [
+      'needs_review',
+      'has_requests',
+      'clean'
+    ].includes(reviewQuery)
+  ) {
+
+    setReviewFilter(reviewQuery);
+
+  }
+
+}, [reviewQuery]);
 
   const [currentPage, setCurrentPage] =
     useState(1);
@@ -142,11 +165,42 @@ const filtered = assignments.filter((a) => {
       && isExpired
     );
 
+  const matchesTeacherReview =
+
+    role !== 'teacher'
+
+    ||
+
+    reviewFilter === 'all'
+
+    ||
+
+    (
+      reviewFilter === 'needs_review' &&
+      Number(a.pending_review) > 0
+    )
+
+    ||
+
+    (
+      reviewFilter === 'has_requests' &&
+      Number(a.pending_requests) > 0
+    )
+
+    ||
+
+    (
+      reviewFilter === 'clean' &&
+      Number(a.pending_review) === 0 &&
+      Number(a.pending_requests) === 0
+    );
+
   return (
     matchesSearch &&
     matchesCourse &&
     matchesSubmission &&
-    matchesStatus
+    matchesStatus &&
+    matchesTeacherReview
   );
 });
 
@@ -273,6 +327,41 @@ const paginatedAssignments =
       </option>
     ))}
   </select>
+
+    {role === 'teacher' && (
+
+      <select
+        value={reviewFilter}
+        onChange={(e) => {
+          setReviewFilter(e.target.value);
+          setCurrentPage(1);
+        }}
+        className="
+          border rounded-xl
+          px-4 py-3
+          bg-white
+        "
+      >
+
+        <option value="all">
+          All Review Status
+        </option>
+
+        <option value="needs_review">
+          Needs Review
+        </option>
+
+        <option value="has_requests">
+          Has Requests
+        </option>
+
+        <option value="clean">
+          Fully Reviewed
+        </option>
+
+      </select>
+
+    )}
 
   {role === 'student' && (
     <select
@@ -463,13 +552,17 @@ const paginatedAssignments =
                   </p>
 
                   {/* DESCRIPTION */}
-                  <p className="
-                    text-sm text-gray-600
-                    line-clamp-3
-                    mb-5
-                  ">
-                    {a.description || 'No description'}
-                  </p>
+                  {role === 'student' && (
+
+                    <p className="
+                      text-sm text-gray-600
+                      line-clamp-3
+                      mb-5
+                    ">
+                      {a.description || 'No description'}
+                    </p>
+
+                  )}
 
                   {/* DEADLINE */}
                   <div className="
@@ -613,54 +706,102 @@ const paginatedAssignments =
                   ====================== */}
                   {role === 'teacher' && (
 
-                    <div className="space-y-3">
+                    <div className="mt-4">
 
-                      {/* SUBMISSIONS */}
                       <div className="
-                        flex items-center
-                        justify-between
+                        grid
+                        grid-cols-3
+                        gap-3
                       ">
 
-                        <span className="
-                          text-sm text-gray-500
+                        {/* SUBMITTED */}
+                        <div className="
+                          bg-green-50
+                          border
+                          border-green-100
+                          rounded-xl
+                          p-3
+                          text-center
                         ">
-                          Submissions
-                        </span>
 
-                        <span className="
-                          font-semibold
-                          text-gray-800
+                          <p className="
+                            text-2xl
+                            font-bold
+                            text-green-700
+                          ">
+                            {a.submission_count ?? 0}
+                          </p>
+
+                          <p className="
+                            text-xs
+                            font-medium
+                            text-green-600
+                          ">
+                            Submitted
+                          </p>
+
+                        </div>
+
+                        {/* TO GRADE */}
+                        <div className="
+                          bg-yellow-50
+                          border
+                          border-yellow-100
+                          rounded-xl
+                          p-3
+                          text-center
                         ">
-                          {a.submissions_count}
-                        </span>
 
-                      </div>
+                          <p className="
+                            text-2xl
+                            font-bold
+                            text-yellow-700
+                          ">
+                            {a.pending_review ?? 0}
+                          </p>
 
-                      {/* PENDING REQUESTS */}
-                      <div className="
-                        flex items-center
-                        justify-between
-                      ">
+                          <p className="
+                            text-xs
+                            font-medium
+                            text-yellow-600
+                          ">
+                            Review
+                          </p>
 
-                        <span className="
-                          text-sm text-gray-500
+                        </div>
+
+                        {/* REQUESTS */}
+                        <div className="
+                          bg-orange-50
+                          border
+                          border-orange-100
+                          rounded-xl
+                          p-3
+                          text-center
                         ">
-                          Pending Requests
-                        </span>
 
-                        <span className="
-                          bg-orange-100
-                          text-orange-700
-                          px-3 py-1
-                          rounded-full
-                          text-xs font-semibold
-                        ">
-                          {a.pending_requests}
-                        </span>
+                          <p className="
+                            text-2xl
+                            font-bold
+                            text-orange-700
+                          ">
+                            {a.pending_requests ?? 0}
+                          </p>
+
+                          <p className="
+                            text-xs
+                            font-medium
+                            text-orange-600
+                          ">
+                            Requests
+                          </p>
+
+                        </div>
 
                       </div>
 
                     </div>
+
                   )}
 
                 </div>

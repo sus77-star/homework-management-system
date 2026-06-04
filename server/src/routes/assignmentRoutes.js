@@ -162,47 +162,47 @@ router.get(
       // =========================
       if (role === 'student') {
 
-      let query = `
-      SELECT DISTINCT
-        a.*,
-        c.title AS course_title,
+    let query = `
+    SELECT DISTINCT
+      a.*,
+      c.title AS course_title,
 
-        s.id AS submission_id,
+      s.id AS submission_id,
 
-        CASE
-          WHEN s.id IS NOT NULL
-          THEN true
-          ELSE false
-        END AS submission_status,
+      CASE
+        WHEN s.id IS NOT NULL
+        THEN true
+        ELSE false
+      END AS submission_status,
 
-        s.score,
-        s.grade_letter,
+      s.score,
+      s.grade_letter,
 
-        (
-          SELECT rr.status
-          FROM resubmit_requests rr
-          WHERE rr.submission_id = s.id
-          ORDER BY rr.created_at DESC
-          LIMIT 1
-        ) AS resubmit_status
+      (
+        SELECT rr.status
+        FROM resubmit_requests rr
+        WHERE rr.submission_id = s.id
+        ORDER BY rr.created_at DESC
+        LIMIT 1
+      ) AS resubmit_status
 
-      FROM assignments a
+    FROM assignments a
 
-      JOIN courses c
-        ON c.id = a.course_id
+    JOIN courses c
+      ON c.id = a.course_id
 
-      JOIN class_courses cc
-        ON cc.course_id = c.id
+    JOIN class_courses cc
+      ON cc.course_id = c.id
 
-      JOIN enrollments e
-        ON e.class_id = cc.class_id
+    JOIN enrollments e
+      ON e.class_id = cc.class_id
 
-      LEFT JOIN submissions s
-        ON s.assignment_id = a.id
-        AND s.student_id = $1
+    LEFT JOIN submissions s
+      ON s.assignment_id = a.id
+      AND s.student_id = $1
 
-      WHERE e.student_id = $1
-      `;
+    WHERE e.student_id = $1
+    `;
 
         const values = [userId];
 
@@ -230,20 +230,95 @@ router.get(
       // TEACHER
       // =========================
       let query = `
-        SELECT
-          a.*,
-          c.title AS course_title,
-          COUNT(s.id) AS submission_count
+      SELECT
+        a.*,
+        c.title AS course_title,
 
-        FROM assignments a
+        /* ======================
+          SUBMISSION COUNT
+        ====================== */
+        CASE
 
-        JOIN courses c
-          ON c.id = a.course_id
+          WHEN a.type = 'quiz' THEN (
 
-        LEFT JOIN submissions s
-          ON s.assignment_id = a.id
+            SELECT COUNT(
+              DISTINCT sa.student_id
+            )
 
-        WHERE c.teacher_id = $1
+            FROM student_answers sa
+
+            JOIN questions q
+              ON q.id = sa.question_id
+
+            WHERE q.assignment_id = a.id
+
+          )
+
+          ELSE
+
+            COUNT(
+              DISTINCT s.id
+            )
+
+        END::int AS submission_count,
+
+        /* ======================
+          PENDING REVIEW
+        ====================== */
+        CASE
+
+          WHEN a.type = 'quiz' THEN (
+
+            SELECT COUNT(
+              DISTINCT sa.student_id
+            )
+
+            FROM student_answers sa
+
+            JOIN questions q
+              ON q.id = sa.question_id
+
+            WHERE q.assignment_id = a.id
+
+            AND q.question_type = 'subjective'
+
+            AND sa.score IS NULL
+
+          )
+
+          ELSE
+
+            COUNT(
+              DISTINCT CASE
+                WHEN s.score IS NULL
+                THEN s.id
+              END
+            )
+
+        END::int AS pending_review,
+
+        /* ======================
+          RESUBMIT REQUEST
+        ====================== */
+        COUNT(
+          DISTINCT CASE
+            WHEN rr.status = 'pending'
+            THEN rr.id
+          END
+        )::int AS pending_requests
+
+      FROM assignments a
+
+      JOIN courses c
+        ON c.id = a.course_id
+
+      LEFT JOIN submissions s
+        ON s.assignment_id = a.id
+
+      LEFT JOIN resubmit_requests rr
+        ON rr.submission_id = s.id
+
+      WHERE c.teacher_id = $1
       `;
 
       const values = [userId];

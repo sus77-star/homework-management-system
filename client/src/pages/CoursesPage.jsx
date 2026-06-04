@@ -4,6 +4,7 @@ import api from '../services/api';
 import { jwtDecode } from 'jwt-decode';
 import { useNavigate } from 'react-router-dom';
 import { ArrowUp, ArrowDown } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function CoursesPage() {
 
@@ -178,19 +179,19 @@ const filteredCourses = courses
   // ==============================
   const handleCreate = async () => {
     if (!form.title || !form.description || !form.teacher_id) {
-      alert('Every Field must be Filled');
+      toast.error('Every Field must be Filled');
       return;
     }
 
     try {
       await api.post('/courses', form);
-      alert('Course Create Success');
+      toast.success('Course Create Success');
 
       setForm({ title: '', description: '', teacher_id: '' });
       fetchData();
 
     } catch (err) {
-      alert(err.response?.data?.message || 'Cannot Create Course');
+      toast.error(err.response?.data?.message || 'Cannot Create Course');
     }
   };
 
@@ -198,14 +199,14 @@ const filteredCourses = courses
     try {
       await api.put(`/courses/${editingCourse.id}`, form);
 
-      alert('Course Updated');
+      toast.success('Course Updated');
 
       setEditingCourse(null);
       setForm({ title: '', description: '', teacher_id: '' });
       fetchData();
 
     } catch (err) {
-      alert('Course Fail to Update');
+      toast.error('Course Fail to Update');
     }
   };
   // ==============================

@@ -8,7 +8,7 @@ import CourseDetail from './pages/CourseDetail';
 import ClassesPage from './pages/ClassesPage';
 import AssignmentsPage from './pages/AssignmentsPage';
 import AssignmentDetail from './pages/AssignmentDetail';
-import ResubmitRequests from './pages/ResubmitRequests';
+
 import SubmissionsPage from './pages/SubmissionsPage';
 import GradesPage from './pages/GradesPage';
 import LoginRecordsPage from './pages/LoginRecordsPage';
@@ -119,14 +119,6 @@ function App() {
           }
         />
 
-        <Route
-          path="/resubmit-request"
-          element={
-            <ProtectedRoute>
-              <ResubmitRequests />
-            </ProtectedRoute>
-          }
-        />
 
         <Route
           path="/grades"

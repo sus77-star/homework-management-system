@@ -197,14 +197,7 @@ CREATE TABLE resubmission_requests (
   status VARCHAR(20) DEFAULT 'pending'
 );
 
-CREATE TABLE materials (
-  id SERIAL PRIMARY KEY,
-  title TEXT,
-  file_url TEXT,
-  course_id INT,
-  uploaded_by INT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+
 
 ALTER TABLE assignments
 ADD COLUMN file_url TEXT;
@@ -349,3 +342,14 @@ UNIQUE (
 ALTER TABLE notifications
 ADD COLUMN link TEXT;
 
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public';
+
+SELECT
+    table_name,
+    column_name,
+    data_type
+FROM information_schema.columns
+WHERE table_schema = 'public'
+ORDER BY table_name, ordinal_position;

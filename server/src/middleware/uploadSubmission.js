@@ -6,7 +6,7 @@ const pool = require('../../config/db');
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
     try {
-      // 🔥 ambil dari params, bukan body
+   
       const assignmentId = req.params.id;
 
       const result = await pool.query(

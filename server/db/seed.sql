@@ -91,3 +91,10 @@ ORDER BY created_at DESC;
 SELECT *
 FROM assignment_reminders
 WHERE id = 39;
+
+SELECT *
+FROM student_answers sa
+JOIN questions q
+  ON q.id = sa.question_id
+WHERE q.assignment_id = 1
+AND sa.student_id = ?

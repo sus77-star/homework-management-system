@@ -169,14 +169,88 @@ router.get(
 
       s.id AS submission_id,
 
-      CASE
-        WHEN s.id IS NOT NULL
-        THEN true
-        ELSE false
-      END AS submission_status,
+    CASE
 
-      s.score,
-      s.grade_letter,
+      WHEN a.type = 'quiz' THEN (
+
+        EXISTS (
+
+          SELECT 1
+
+          FROM student_answers sa
+
+          JOIN questions q
+            ON q.id = sa.question_id
+
+          WHERE q.assignment_id = a.id
+          AND sa.student_id = $1
+
+        )
+
+      )
+
+      ELSE (
+
+        s.id IS NOT NULL
+
+      )
+
+    END AS submission_status,
+
+CASE
+
+  WHEN a.type = 'quiz' THEN (
+
+    SELECT COALESCE(
+      SUM(sa.score),
+      0
+    )
+
+    FROM student_answers sa
+
+    JOIN questions q
+      ON q.id = sa.question_id
+
+    WHERE q.assignment_id = a.id
+    AND sa.student_id = $1
+
+  )
+
+  ELSE s.score
+
+END AS score,
+
+      CASE
+
+        WHEN a.type = 'quiz' THEN (
+
+          EXISTS (
+
+            SELECT 1
+
+            FROM student_answers sa
+
+            JOIN questions q
+              ON q.id = sa.question_id
+
+            WHERE q.assignment_id = a.id
+            AND sa.student_id = $1
+
+            AND q.question_type = 'subjective'
+            AND sa.score IS NULL
+
+          )
+
+        )
+
+        ELSE (
+
+          s.id IS NOT NULL
+          AND s.score IS NULL
+
+        )
+
+      END AS pending_review,    
 
       (
         SELECT rr.status

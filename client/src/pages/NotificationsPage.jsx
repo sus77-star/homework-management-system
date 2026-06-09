@@ -25,7 +25,7 @@ export default function NotificationsPage() {
 
   const [total, setTotal] = useState(0);
 
-  const limit = 10;
+  const limit = 5;
 
   useEffect(() => {
     fetchNotifications();
@@ -96,6 +96,56 @@ export default function NotificationsPage() {
       1,
       Math.ceil(total / limit)
     );
+
+  const handleNotificationClick = async (id) => {
+
+    setNotifications(prev =>
+      prev.map(item =>
+        item.id === id
+          ? { ...item, is_read: true }
+          : item
+      )
+    );
+
+    try {
+      await api.put(`/notifications/${id}/read`);
+    } catch (err) {
+      console.error(err);
+    }
+
+  };
+
+  const getPageNumbers = () => {
+    if (totalPages <= 7) {
+      return [...Array(totalPages)].map((_, i) => i + 1);
+    }
+
+    if (page <= 4) {
+      return [1, 2, 3, 4, 5, '...', totalPages];
+    }
+
+    if (page >= totalPages - 3) {
+      return [
+        1,
+        '...',
+        totalPages - 4,
+        totalPages - 3,
+        totalPages - 2,
+        totalPages - 1,
+        totalPages
+      ];
+    }
+
+    return [
+      1,
+      '...',
+      page - 1,
+      page,
+      page + 1,
+      '...',
+      totalPages
+    ];
+  };
 
   return (
 
@@ -305,10 +355,8 @@ export default function NotificationsPage() {
 
               <Link
                 key={n.id}
-                to={
-                  n.link ||
-                  '/notifications'
-                }
+                to={n.link ||'/notifications'}
+                onClick={() => handleNotificationClick(n.id)}
               >
 
                 <div
@@ -401,51 +449,90 @@ export default function NotificationsPage() {
         )}
 
         {/* PAGINATION */}
-        <div className="flex justify-center items-center gap-4 mt-8">
+        {totalPages > 1 && (
 
-          <button
-            disabled={page === 1}
-            onClick={() =>
-              setPage(page - 1)
-            }
+          <div
             className="
-              border
-              rounded-xl
-              px-4 py-2
-              disabled:opacity-50
-              flex items-center gap-2
+              flex justify-center
+              items-center
+              gap-2
+              mt-8
+              flex-wrap
             "
           >
-            <ChevronLeft size={16} />
-            Prev
-          </button>
 
-          <div className=" px-4 py-2 font-medium">
+            {/* PREV */}
+            <button
+              disabled={page === 1}
+              onClick={() => setPage(page - 1)}
+              className="
+                px-3 py-1
+                bg-gray-200
+                rounded-lg
+                hover:bg-gray-300
+                disabled:opacity-50
+                disabled:cursor-not-allowed
+              "
+            >
+              Prev
+            </button>
 
-            Page {page} {'/'} {totalPages}
+            {/* PAGE NUMBERS */}
+            {getPageNumbers().map((item, index) => {
+
+              if (item === '...') {
+                return (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="px-3 py-1 text-gray-500"
+                  >
+                    ...
+                  </span>
+                );
+              }
+
+              return (
+                <button
+                  key={`${item}-${index}`}
+                  onClick={() => setPage(item)}
+                  className={`
+                    px-3 py-1
+                    
+                    rounded-md
+                    font-medium
+                    transition
+
+                    ${
+                      page === item
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                    }
+                  `}
+                >
+                  {item}
+                </button>
+              );
+            })}
+
+            {/* NEXT */}
+            <button
+              disabled={page >= totalPages}
+              onClick={() => setPage(page + 1)}
+              className="
+                px-3 py-1
+                bg-gray-200
+                rounded-md
+                hover:bg-gray-300
+                disabled:opacity-50
+                disabled:cursor-not-allowed
+              "
+            >
+              Next
+            </button>
 
           </div>
 
-          <button
-            disabled={
-              page >= totalPages
-            }
-            onClick={() =>
-              setPage(page + 1)
-            }
-            className="
-              border
-              rounded-xl
-              px-4 py-2
-              disabled:opacity-50
-              flex items-center gap-2
-            "
-          >
-            Next
-            <ChevronRight size={16} />
-          </button>
-
-        </div>
+        )}
 
       </div>
 

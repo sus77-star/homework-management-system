@@ -52,6 +52,7 @@ export default function AssignmentsPage() {
   ) {
 
     setReviewFilter(reviewQuery);
+    setCurrentPage(1);
 
   }
 
@@ -76,6 +77,17 @@ export default function AssignmentsPage() {
     fetchAssignments();
 
   }, []);
+
+  const getGradeLetter = (score) => {
+
+    if (score >= 90) return 'A';
+    if (score >= 85) return 'A-';
+    if (score >= 80) return 'B+';
+    if (score >= 75) return 'B';
+    if (score >= 70) return 'B-';
+
+    return 'C';
+  };
 
   // ==============================
   // FETCH
@@ -209,6 +221,38 @@ const totalPages =
     filtered.length /
     itemsPerPage
   );
+
+const getPageNumbers = () => {
+  if (totalPages <= 7) {
+    return [...Array(totalPages)].map((_, i) => i + 1);
+  }
+
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, '...', totalPages];
+  }
+
+  if (currentPage >= totalPages - 3) {
+    return [
+      1,
+      '...',
+      totalPages - 4,
+      totalPages - 3,
+      totalPages - 2,
+      totalPages - 1,
+      totalPages
+    ];
+  }
+
+  return [
+    1,
+    '...',
+    currentPage - 1,
+    currentPage,
+    currentPage + 1,
+    '...',
+    totalPages
+  ];
+};
 
 const startIndex =
   (currentPage - 1) *
@@ -627,43 +671,90 @@ const paginatedAssignments =
 
                       </div>
 
-                      {/* GRADE */}
-                      <div className="
-                        flex items-center
-                        justify-between
-                      ">
+{/* GRADE */}
+<div
+  className="
+    flex items-center
+    justify-between
+  "
+>
 
-                        <span className="
-                          text-sm text-gray-500
-                        ">
-                          Grade
-                        </span>
+  <span
+    className="
+      text-sm text-gray-500
+    "
+  >
+    Grade
+  </span>
 
-                        <div className="
-                          flex items-center
-                          gap-2
-                        ">
+  {a.pending_review ? (
 
-                          <span className="
-                            font-semibold
-                            text-gray-800
-                          ">
-                            {a.score ?? '-'}
-                          </span>
+    <span
+      className="
+        bg-yellow-100
+        text-yellow-700
+        px-3 py-1
+        rounded-full
+        text-xs
+        font-semibold
+      "
+    >
+      Pending Review
+    </span>
 
-                          <span className="
-                            bg-blue-100
-                            text-blue-700
-                            px-2 py-1
-                            rounded-md
-                            text-xs font-semibold
-                          ">
-                            {a.grade_letter ?? '-'}
-                          </span>
+  ) : (
 
-                        </div>
+    <div
+      className="
+        flex items-center
+        gap-2
+      "
+    >
 
-                      </div>
+      <span
+        className="
+          font-semibold
+          text-gray-800
+        "
+      >
+        <span
+          className="
+            font-semibold
+            text-gray-800
+          "
+        >
+          {
+            a.score !== null &&
+            a.score !== undefined
+              ? parseFloat(a.score)
+              : '-'
+          }
+        </span>
+      </span>
+
+      <span
+        className="
+          bg-blue-100
+          text-blue-700
+          px-2 py-1
+          rounded-md
+          text-xs
+          font-semibold
+        "
+      >
+        {
+          a.score !== null &&
+          a.score !== undefined
+            ? getGradeLetter(Number(a.score))
+            : '-'
+        }
+      </span>
+
+    </div>
+
+  )}
+
+</div>
 
                       {/* RESUBMIT STATUS */}
                       {a.resubmit_status && (
@@ -854,65 +945,100 @@ const paginatedAssignments =
 
       </div>
 
-      {totalPages > 1 && (
+{totalPages > 1 && (
 
-        <div className="
-          flex
-          justify-center
-          items-center
-          gap-3
-          mt-8
-        ">
+  <div
+    className="
+      flex justify-center
+      items-center
+      gap-2
+      mt-8
+      flex-wrap
+    "
+  >
 
-          <button
-            disabled={
-              currentPage === 1
-            }
-            onClick={() =>
-              setCurrentPage(
-                currentPage - 1
-              )
-            }
+    {/* PREV */}
+    <button
+      disabled={currentPage === 1}
+      onClick={() =>
+        setCurrentPage(currentPage - 1)
+      }
+      className="
+        px-3 py-1
+        bg-gray-200
+        rounded-md
+        hover:bg-gray-300
+        disabled:opacity-50
+        disabled:cursor-not-allowed
+      "
+    >
+      Prev
+    </button>
+
+    {/* PAGE NUMBERS */}
+    {getPageNumbers().map((item, index) => {
+
+      if (item === '...') {
+        return (
+          <span
+            key={`ellipsis-${index}`}
             className="
-              px-4 py-2
-              bg-white
-              border
-              rounded-lg
-              disabled:opacity-50
+              px-2
+              text-gray-500
             "
           >
-            Prev
-          </button>
-
-          <span className="font-medium">
-            Page {currentPage}
-            {' / '}
-            {totalPages}
+            ...
           </span>
+        );
+      }
 
-          <button
-            disabled={
-              currentPage === totalPages
+      return (
+        <button
+          key={`${item}-${index}`}
+          onClick={() =>
+            setCurrentPage(item)
+          }
+          className={`
+            px-3 py-1
+            rounded-md
+            font-medium
+            transition
+
+            ${
+              currentPage === item
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
             }
-            onClick={() =>
-              setCurrentPage(
-                currentPage + 1
-              )
-            }
-            className="
-              px-4 py-2
-              bg-white
-              border
-              rounded-lg
-              disabled:opacity-50
-            "
-          >
-            Next
-          </button>
+          `}
+        >
+          {item}
+        </button>
+      );
+    })}
 
-        </div>
+    {/* NEXT */}
+    <button
+      disabled={
+        currentPage === totalPages
+      }
+      onClick={() =>
+        setCurrentPage(currentPage + 1)
+      }
+      className="
+        px-3 py-1
+        bg-gray-200
+        rounded-md
+        hover:bg-gray-300
+        disabled:opacity-50
+        disabled:cursor-not-allowed
+      "
+    >
+      Next
+    </button>
 
-      )}
+  </div>
+
+)}
 
     </Layout>
   );

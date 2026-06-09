@@ -1041,7 +1041,7 @@ export default function Dashboard() {
 
           </div>
 
-          {/* LATEST GRADE */}
+          {/* REVIEW */}
           <div className="
             bg-white rounded-2xl
             shadow p-6
@@ -1052,17 +1052,17 @@ export default function Dashboard() {
               justify-between mb-4
             ">
 
-              <GraduationCap
-                className="text-blue-600"
+              <AlertCircle
+                className="text-orange-600"
                 size={30}
               />
 
               <span className="
                 text-xs font-medium
-                bg-blue-100 text-blue-700
+                bg-orange-100 text-orange-700
                 px-3 py-1 rounded-full
               ">
-                LATEST
+                REVIEW
               </span>
 
             </div>
@@ -1071,13 +1071,11 @@ export default function Dashboard() {
               text-3xl font-bold
               text-gray-800
             ">
-              {stats.latest_grade?.score || '-'}
+              {stats.pending_review}
             </h2>
 
             <p className="text-gray-500 mt-1">
-              Grade:
-              {' '}
-              {stats.latest_grade?.grade_letter || '-'}
+              Waiting for grading
             </p>
 
           </div>

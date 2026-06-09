@@ -213,9 +213,29 @@ const filteredCourses = courses
   // DELETE
   // ==============================
   const handleDelete = async (id) => {
+
     if (!confirm('Delete course?')) return;
-    await api.delete(`/courses/${id}`);
-    fetchData();
+
+    try {
+
+      await api.delete(`/courses/${id}`);
+
+      toast.success(
+        'Course deleted successfully'
+      );
+
+      fetchData();
+
+    } catch (err) {
+
+      console.log(err.response?.data);
+
+      toast.error(
+        err.response?.data?.message ||
+        'Failed to delete course'
+      );
+
+    }
   };
 
   

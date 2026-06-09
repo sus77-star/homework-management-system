@@ -244,39 +244,95 @@ average_score:
       // STUDENT
       // =========================
       const [
-        submitted,
+        submittedUpload,
+        submittedQuiz,
         pending,
-        averageScore,
-        latestGrade
+        pendingReview,
+        averageScore
       ] = await Promise.all([
 
+        // Upload assignments submitted
         pool.query(
           `
-          SELECT COUNT(*)
+          SELECT COUNT(*)::int AS total
           FROM submissions
           WHERE student_id = $1
           `,
           [userId]
         ),
 
+        // Quiz submitted
         pool.query(
           `
-          SELECT COUNT(*)
+          SELECT COUNT(
+            DISTINCT q.assignment_id
+          )::int AS total
+
+          FROM student_answers sa
+
+          JOIN questions q
+            ON q.id = sa.question_id
+
+          WHERE sa.student_id = $1
+          `,
+          [userId]
+        ),
+
+        // Pending assignments (class based)
+        pool.query(
+          `
+          SELECT COUNT(*)::int AS total
+
           FROM assignments a
 
-          WHERE a.id NOT IN (
+          JOIN class_courses cc
+            ON cc.course_id = a.course_id
+
+          JOIN enrollments e
+            ON e.class_id = cc.class_id
+
+          WHERE e.student_id = $1
+
+          AND a.id NOT IN (
+
             SELECT assignment_id
             FROM submissions
             WHERE student_id = $1
+
+            UNION
+
+            SELECT DISTINCT q.assignment_id
+            FROM student_answers sa
+            JOIN questions q
+              ON q.id = sa.question_id
+            WHERE sa.student_id = $1
+
+
           )
           `,
           [userId]
         ),
 
+        // Waiting review
+        pool.query(
+          `
+          SELECT COUNT(*)::int AS total
+
+          FROM submissions
+
+          WHERE
+            student_id = $1
+            AND score IS NULL
+          `,
+          [userId]
+        ),
+
+        // Upload assignment average
         pool.query(
           `
           SELECT ROUND(
-            AVG(score), 2
+            AVG(score),
+            2
           ) AS avg
 
           FROM submissions
@@ -286,24 +342,6 @@ average_score:
             AND score IS NOT NULL
           `,
           [userId]
-        ),
-
-        pool.query(
-          `
-          SELECT
-            score,
-            grade_letter
-
-          FROM submissions
-
-          WHERE
-            student_id = $1
-            AND score IS NOT NULL
-
-          ORDER BY submitted_at DESC
-          LIMIT 1
-          `,
-          [userId]
         )
 
       ]);
@@ -311,18 +349,20 @@ average_score:
       res.json({
 
         submitted:
-          submitted.rows[0].count,
+          Number(submittedUpload.rows[0].total)
+          +
+          Number(submittedQuiz.rows[0].total),
 
         pending:
-          pending.rows[0].count,
+          pending.rows[0].total,
+
+        pending_review:
+          pendingReview.rows[0].total,
 
         average_score:
-          averageScore.rows[0].avg || 0,
+          averageScore.rows[0].avg || 0
 
-        latest_grade:
-          latestGrade.rows[0] || null
       });
-
     } catch (err) {
 
       console.error(err);
@@ -498,11 +538,14 @@ pendingRequests.rows[0].total
       // =========================
       // STUDENT
       // =========================
-      const scores = await pool.query(
+
+      // Upload assignment scores
+      const uploadScores = await pool.query(
         `
         SELECT
           a.title,
-          s.score
+          s.score,
+          s.submitted_at
 
         FROM submissions s
 
@@ -512,27 +555,77 @@ pendingRequests.rows[0].total
         WHERE
           s.student_id = $1
           AND s.score IS NOT NULL
-
-        ORDER BY s.submitted_at ASC
         `,
         [userId]
       );
 
-      const completed = await pool.query(
+      // Quiz scores
+      const quizScores = await pool.query(
         `
-        SELECT COUNT(*)::int AS total
-        FROM submissions
-        WHERE student_id = $1
+        SELECT
+
+          a.title,
+
+          COALESCE(
+            SUM(sa.score),
+            0
+          )::numeric AS score,
+
+          MAX(sa.submitted_at) AS submitted_at
+
+        FROM student_answers sa
+
+        JOIN questions q
+          ON q.id = sa.question_id
+
+        JOIN assignments a
+          ON a.id = q.assignment_id
+
+        WHERE
+          sa.student_id = $1
+
+        GROUP BY
+          a.id,
+          a.title
         `,
         [userId]
       );
+    
+      const mergedScores = [
+
+        ...uploadScores.rows.map(item => ({
+          title: item.title,
+          score: Number(item.score),
+          type: 'upload',
+          submitted_at: item.submitted_at
+        })),
+
+        ...quizScores.rows.map(item => ({
+          title: item.title,
+          score: Number(item.score),
+          type: 'quiz',
+          submitted_at: item.submitted_at
+        }))
+
+      ].sort(
+        (a, b) =>
+          new Date(a.submitted_at) -
+          new Date(b.submitted_at)
+      );
+
+      const completed =
+
+        uploadScores.rows.length +
+
+        quizScores.rows.length;
 
       return res.json({
-        scores: scores.rows,
-        completed:
-          completed.rows[0].total
-      });
 
+        scores: mergedScores,
+
+        completed
+
+      });
     } catch (err) {
 
       console.error(err);

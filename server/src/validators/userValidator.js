@@ -1,11 +1,53 @@
 const Joi = require('joi');
 
 const createUserSchema = Joi.object({
-  name: Joi.string().min(3).required(),
-  username: Joi.string().alphanum().min(3).max(20).required(),
-  email: Joi.string().email().required(),
-  password: Joi.string().min(6).required(),
-  role_id: Joi.number().required()
+  name: Joi.string()
+    .min(3)
+    .required()
+    .messages({
+      'string.empty': 'Name is required',
+      'string.min': 'Name must be at least 3 characters',
+      'any.required': 'Name is required'
+    }),
+
+  username: Joi.string()
+    .alphanum()
+    .min(3)
+    .max(20)
+    .required()
+    .messages({
+      'string.empty': 'Username is required',
+      'string.min': 'Username must be at least 3 characters',
+      'string.max': 'Username cannot exceed 20 characters',
+      'string.alphanum':
+        'Username can only contain letters and numbers',
+      'any.required': 'Username is required'
+    }),
+
+  email: Joi.string()
+    .email()
+    .required()
+    .messages({
+      'string.empty': 'Email is required',
+      'string.email': 'Please enter a valid email address',
+      'any.required': 'Email is required'
+    }),
+
+  password: Joi.string()
+    .min(6)
+    .required()
+    .messages({
+      'string.empty': 'Password is required',
+      'string.min': 'Password must be at least 6 characters',
+      'any.required': 'Password is required'
+    }),
+
+  role_id: Joi.number()
+    .required()
+    .messages({
+      'number.base': 'Please select a role',
+      'any.required': 'Please select a role'
+    })
 });
 
 const updateProfileSchema = Joi.object({

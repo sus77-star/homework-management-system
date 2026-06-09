@@ -2524,9 +2524,9 @@ for (const q of questions) {
 
     ) : (
 
-      <div className="bg-white p-4 rounded-xl shadow mb-6">
+      <div className="bg-white p-4 rounded-xl shadow mb-6 flex flex-col">
 
-        <h3 className="font-semibold mb-3 flex items-center gap-2">
+        <h3 className="font-semibold mb-3 flex items-center gap-2 text-center">
           <Upload size={16} />
           Submit Assignment
         </h3>
@@ -2740,13 +2740,13 @@ for (const q of questions) {
           <table className="w-full text-sm">
             <thead className="bg-gray-100 text-gray-600">
   <tr>
-    <th className="p-4 text-center font-semibold">Student</th>
+    <th className="p-4 text-left font-semibold">Student</th>
 
-    <th className="p-4 text-center font-semibold">
+    <th className="p-4 text-left  font-semibold">
       File
     </th>
 
-    <th className="p-4 text-center font-semibold">
+    <th className="p-4 text-left font-semibold">
       Date
     </th>
 

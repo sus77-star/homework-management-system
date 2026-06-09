@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import api from '../services/api';
 import { ArrowUp, ArrowDown } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
@@ -44,6 +45,10 @@ export default function UsersPage() {
       setUsers(res.data);
     } catch (err) {
       console.log(err.response?.data);
+      toast.error(
+        err.response?.data?.message ||
+        'Failed to load users'
+      );
     } finally {
       setLoading(false);
     }
@@ -54,23 +59,68 @@ export default function UsersPage() {
   };
 
   const handleCreate = async () => {
+
+  if (!form.name.trim()) {
+    return toast.error('Name is required');
+  }
+
+  if (form.name.length < 3) {
+    return toast.error(
+      'Name must be at least 3 characters'
+    );
+  }
+
+  if (!form.username.trim()) {
+    return toast.error('Username is required');
+  }
+
+  if (form.username.length < 3) {
+    return toast.error(
+      'Username must be at least 3 characters'
+    );
+  }
+
+  if (!form.email.trim()) {
+    return toast.error('Email is required');
+  }
+
+  if (!form.password) {
+    return toast.error('Password is required');
+  }
+
+  if (form.password.length < 6) {
+    return toast.error(
+      'Password must be at least 6 characters'
+    );
+  }
+
+  if (!form.role_id) {
+    return toast.error('Please select a role');
+  }    
+
     try {
-      await api.post('/users', form);
-      alert('Account Created');
-      setForm({ name: '', username: '',email: '', password: '', role_id: '' });
+      await toast.promise(
+        api.post('/users', form),
+        {
+          loading: 'Creating account...',
+          success: 'Account created successfully',
+          error: (err) =>
+            err.response?.data?.message ||
+            'Failed to create account'
+        }
+      );
+
+      setForm({
+        name: '',
+        username: '',
+        email: '',
+        password: '',
+        role_id: ''
+      });
+
       fetchUsers();
-    } catch (err) {
-      const data = err.response?.data;
-      console.log(err.response?.data);
-      if (data?.errors) {
-      alert(data.errors.join('\n'));
-    } else if (data?.message) {
-      
-      alert(data.message);
-    } else {
-      alert('Something went wrong');
-    }
-    }
+
+    } catch {}
   };
  
   const handleToggle = async (id, current) => {
@@ -78,9 +128,16 @@ export default function UsersPage() {
       await api.patch(`/users/${id}/status`, {
         is_active: !current
       });
+
+      toast.success(
+        !current
+          ? 'User activated successfully'
+          : 'User deactivated successfully'
+      );
+
       fetchUsers();
     } catch (err) {
-      console.log(err.response?.data);
+      toast.error('Failed to update status');
     }
   };
 
@@ -89,9 +146,13 @@ export default function UsersPage() {
 
     try {
       await api.delete(`/users/${id}`);
+      toast.success('User deleted successfully');
       fetchUsers();
     } catch (err) {
-      console.log(err.response?.data);
+      toast.error(
+        err.response?.data?.message ||
+        'Failed to delete user'
+      );
     }
   };
 
@@ -137,8 +198,12 @@ export default function UsersPage() {
   const [classes, setClasses] = useState([]);
 
   const fetchClasses = async () => {
-  const res = await api.get('/classes');
-  setClasses(res.data);
+    try {
+      const res = await api.get('/classes');
+      setClasses(res.data);
+    } catch (err) {
+      toast.error('Failed to load classes');
+    }
   };
 
   useEffect(() => {
@@ -282,9 +347,10 @@ export default function UsersPage() {
                         </span>
                       ) : (
                         <select
-                          value={u.class_id || ''}  
+                          value={u.class_id || ''}
                           onChange={async (e) => {
                             const classId = e.target.value;
+
                             if (!classId) return;
 
                             try {
@@ -293,14 +359,23 @@ export default function UsersPage() {
                                 class_id: classId
                               });
 
+                              toast.success('Class assigned successfully');
+
                               setEditingClassUserId(null);
                               fetchUsers();
+
                             } catch (err) {
-                              console.log(err.response?.data);
+                              toast.error(
+                                err.response?.data?.message ||
+                                'Failed to assign class'
+                              );
                             }
                           }}
                           className="border p-1 rounded text-sm bg-blue-100 text-blue-600"
                         >
+                          <option value="">
+                            Select Class
+                          </option>
 
                           {classes.map((c) => (
                             <option key={c.id} value={c.id}>
@@ -429,13 +504,21 @@ export default function UsersPage() {
                 onClick={async () => {
                   try {
                     // update user data
-                    await api.put(`/users/${editingUser.id}`, editingUser);
+                    await toast.promise(
+                      api.put(`/users/${editingUser.id}`, editingUser),
+                      {
+                        loading: 'Saving changes...',
+                        success: 'User updated successfully',
+                        error: 'Failed to update user'
+                      }
+                    );
 
-                    // if fill password → update password
+                    // if fill password  update password
                     if (editingUser.newPassword) {
                       await api.put(`/users/${editingUser.id}/password`, {
                         password: editingUser.newPassword
                       });
+                      toast.success('User and password updated successfully');
                     }
 
                     // refresh
@@ -444,6 +527,10 @@ export default function UsersPage() {
 
                   } catch (err) {
                     console.log(err.response?.data);
+                    toast.error(
+                      err.response?.data?.message ||
+                      'Failed to update user'
+                    );  
                   }
                 }}
                 className="px-3 py-1 bg-blue-600 text-white rounded"

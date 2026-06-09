@@ -194,6 +194,38 @@ export default function SubmissionsPage() {
     itemsPerPage
   );
 
+  const getPageNumbers = () => {
+    if (totalPages <= 7) {
+      return [...Array(totalPages)].map((_, i) => i + 1);
+    }
+
+    if (currentPage <= 4) {
+      return [1, 2, 3, 4, 5, '...', totalPages];
+    }
+
+    if (currentPage >= totalPages - 3) {
+      return [
+        1,
+        '...',
+        totalPages - 4,
+        totalPages - 3,
+        totalPages - 2,
+        totalPages - 1,
+        totalPages
+      ];
+    }
+
+    return [
+      1,
+      '...',
+      currentPage - 1,
+      currentPage,
+      currentPage + 1,
+      '...',
+      totalPages
+    ];
+  };
+
   const startIndex =
     (currentPage - 1) *
     itemsPerPage;
@@ -778,7 +810,9 @@ export default function SubmissionsPage() {
                         text-gray-800
                       ">
 
-                        {Number(s.score) ?? '-'}
+                      {s.score != null
+                        ? Number(s.score)
+                        : '-'}
 
                       </span>
 
@@ -842,83 +876,101 @@ export default function SubmissionsPage() {
 
         </table>
         
-        
-        {totalPages > 1 && (
+{totalPages > 1 && (
 
-          <div
+  <div
+    className="
+      flex justify-center
+      items-center
+      gap-2
+      mt-6
+      mb-4
+      flex-wrap
+    "
+  >
+
+    {/* PREV */}
+    <button
+      disabled={currentPage === 1}
+      onClick={() =>
+        setCurrentPage(currentPage - 1)
+      }
+      className="
+        px-3 py-1
+        bg-gray-200
+        rounded-md
+        hover:bg-gray-300
+        disabled:opacity-50
+        disabled:cursor-not-allowed
+      "
+    >
+      Prev
+    </button>
+
+    {/* PAGE NUMBERS */}
+    {getPageNumbers().map((item, index) => {
+
+      if (item === '...') {
+        return (
+          <span
+            key={`ellipsis-${index}`}
             className="
-              flex
-              justify-center
-              items-center
-              gap-3
-              mt-6
+              px-2
+              text-gray-500
             "
           >
+            ...
+          </span>
+        );
+      }
 
-            <button
+      return (
+        <button
+          key={`${item}-${index}`}
+          onClick={() =>
+            setCurrentPage(item)
+          }
+          className={`
+            px-3 py-1
+            rounded-md
+            font-medium
+            transition
 
-              disabled={
-                currentPage === 1
-              }
+            ${
+              currentPage === item
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+            }
+          `}
+        >
+          {item}
+        </button>
+      );
+    })}
 
-              onClick={() =>
-                setCurrentPage(
-                  currentPage - 1
-                )
-              }
+    {/* NEXT */}
+    <button
+      disabled={
+        currentPage === totalPages
+      }
+      onClick={() =>
+        setCurrentPage(currentPage + 1)
+      }
+      className="
+        px-3 py-1
+        bg-gray-200
+        rounded-md
+        hover:bg-gray-300
+        disabled:opacity-50
+        disabled:cursor-not-allowed
+      "
+    >
+      Next
+    </button>
 
-              className="
-                px-4 py-2
-                border
-                rounded-lg
-                bg-white
-                disabled:opacity-50
-              "
-            >
-              Prev
-            </button>
+  </div>
 
-            <span className="font-medium">
-
-              Page
-
-              {' '}
-
-              {currentPage}
-
-              {' / '}
-
-              {totalPages}
-
-            </span>
-
-            <button
-
-              disabled={
-                currentPage ===
-                totalPages
-              }
-
-              onClick={() =>
-                setCurrentPage(
-                  currentPage + 1
-                )
-              }
-
-              className="
-                px-4 py-2
-                border
-                rounded-lg
-                bg-white
-                disabled:opacity-50
-              "
-            >
-              Next
-            </button>
-
-          </div>
-
-        )}
+)}
 
       </div>
 

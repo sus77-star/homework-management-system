@@ -272,21 +272,61 @@ export default function CourseDetail() {
           return 0;
         });
 
-    const totalPages =
-      Math.ceil(
-        sortedAssignments.length /
-        itemsPerPage
-      );
+  const totalPages = Math.max(
+    1,
+    Math.ceil(
+      sortedAssignments.length /
+      itemsPerPage
+    )
+  );
 
-    const startIndex =
-      (currentPage - 1) *
-      itemsPerPage;
+  const getPageNumbers = () => {
+    if (totalPages <= 7) {
+      return [...Array(totalPages)].map((_, i) => i + 1);
+    }
 
-    const paginatedAssignments =
-      sortedAssignments.slice(
-        startIndex,
-        startIndex + itemsPerPage
-      );        
+    if (currentPage <= 4) {
+      return [1, 2, 3, 4, 5, '...', totalPages];
+    }
+
+    if (currentPage >= totalPages - 3) {
+      return [
+        1,
+        '...',
+        totalPages - 4,
+        totalPages - 3,
+        totalPages - 2,
+        totalPages - 1,
+        totalPages
+      ];
+    }
+
+    return [
+      1,
+      '...',
+      currentPage - 1,
+      currentPage,
+      currentPage + 1,
+      '...',
+      totalPages
+    ];
+  };      
+
+  const startIndex =
+    (currentPage - 1) *
+    itemsPerPage;
+
+  const paginatedAssignments =
+    sortedAssignments.slice(
+      startIndex,
+      startIndex + itemsPerPage
+    );        
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(1);
+    }
+  }, [totalPages]);      
 
   return (
     <Layout>
@@ -685,61 +725,102 @@ export default function CourseDetail() {
             })}
           </ul>
 
-{totalPages > 1 && (
-  <div
-    className="
-      flex
-      justify-center
-      items-center
-      gap-3
-      p-4
-    "
-  >
-  <button
-    disabled={currentPage === 1}
-    onClick={() =>
-      setCurrentPage(
-        currentPage - 1
-      )
-    }
-    className="
-      border
-      rounded
-      px-3
-      py-1
-      disabled:opacity-50
-    "
-  >
-    Prev
-  </button>
+      {totalPages > 1 && (
 
-  <span>
-    Page {currentPage} of{' '}
-    {totalPages}
-  </span>
+        <div
+          className="
+            flex justify-center
+            items-center
+            gap-2
+            p-4
+            flex-wrap
+            border-t
+          "
+        >
 
-  <button
-    disabled={
-      currentPage === totalPages
-    }
-    onClick={() =>
-      setCurrentPage(
-        currentPage + 1
-      )
-    }
-    className="
-      border
-      rounded
-      px-3
-      py-1
-      disabled:opacity-50
-    "
-  >
-    Next
-  </button>
-</div>
+          {/* PREV */}
+          <button
+            disabled={currentPage === 1}
+            onClick={() =>
+              setCurrentPage(currentPage - 1)
+            }
+            className="
+              px-3 py-1
+              bg-gray-200
+              rounded-md
+              hover:bg-gray-300
+              disabled:opacity-50
+              disabled:cursor-not-allowed
+            "
+          >
+            Prev
+          </button>
 
-        )}
+          {/* PAGE NUMBERS */}
+          {getPageNumbers().map((item, index) => {
+
+            if (item === '...') {
+              return (
+                <span
+                  key={`ellipsis-${index}`}
+                  className="
+                    px-2
+                    text-gray-500
+                  "
+                >
+                  ...
+                </span>
+              );
+            }
+
+            return (
+              <button
+                key={`${item}-${index}`}
+                onClick={() =>
+                  setCurrentPage(item)
+                }
+                className={`
+                  px-3 py-1
+                  rounded-md
+                  font-medium
+                  transition
+
+                  ${
+                    currentPage === item
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                  }
+                `}
+              >
+                {item}
+              </button>
+            );
+
+          })}
+
+          {/* NEXT */}
+          <button
+            disabled={
+              currentPage === totalPages
+            }
+            onClick={() =>
+              setCurrentPage(currentPage + 1)
+            }
+            className="
+              px-3 py-1
+              bg-gray-200
+              rounded-md
+              hover:bg-gray-300
+              disabled:opacity-50
+              disabled:cursor-not-allowed
+            "
+          >
+            Next
+          </button>
+
+        </div>
+
+      )}
         </>
         )}
       </div>

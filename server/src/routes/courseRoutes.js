@@ -5,6 +5,38 @@ const pool = require('../../config/db');
 const auth = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 
+
+router.delete(
+  '/:id',
+  auth,
+  roleMiddleware(['admin']),
+  async (req, res) => {
+
+    const { id } = req.params;
+
+    try {
+
+      await pool.query(
+        'DELETE FROM courses WHERE id = $1',
+        [id]
+      );
+
+      res.json({
+        message: 'Course deleted'
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        message: 'Error deleting course'
+      });
+
+    }
+  }
+);
+
 // ==============================
 // CREATE COURSE (ADMIN ONLY)
 // ==============================
@@ -249,5 +281,7 @@ router.put('/:id', auth, roleMiddleware(['admin']), async (req, res) => {
     res.status(500).json({ message: 'Error updating course ' });
   }
 });
+
+
 
 module.exports = router;

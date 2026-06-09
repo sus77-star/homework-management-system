@@ -73,6 +73,45 @@ export default function LoginLogsPage() {
   const startIndex = (currentPage - 1) * logsPerPage;
   const endIndex = startIndex + logsPerPage;
 
+  const getPageNumbers = () => {
+    const pages = [];
+
+    if (totalPages <= 7) {
+      return Array.from(
+        { length: totalPages },
+        (_, i) => i + 1
+      );
+    }
+
+    pages.push(1);
+
+    if (currentPage > 4) {
+      pages.push('...');
+    }
+
+    const startPage = Math.max(2, currentPage - 2);
+    const endPage = Math.min(
+      totalPages - 1,
+      currentPage + 2
+    );
+
+    for (
+      let page = startPage;
+      page <= endPage;
+      page++
+    ) {
+      pages.push(page);
+    }
+
+    if (currentPage < totalPages - 3) {
+      pages.push('...');
+    }
+
+    pages.push(totalPages);
+
+    return pages;
+  };
+
   return (
   <Layout>
   <div className="p-6">
@@ -150,15 +189,15 @@ export default function LoginLogsPage() {
 
             <tr>
 
-              <th className="text-center px-6 py-4 font-semibold text-gray-600 ">
+              <th className=" text-left px-6 py-4 font-semibold text-gray-600 ">
                 Name
               </th>
 
-              <th className="text-center px-6 py-4 font-semibold text-gray-600">
+              <th className=" text-left px-6 py-4 font-semibold text-gray-600">
                 Role
               </th>
 
-              <th className="text-center px-6 py-4 font-semibold text-gray-600">
+              <th className=" text-left px-6 py-4 font-semibold text-gray-600">
                 Login Time
               </th>
 
@@ -209,12 +248,12 @@ export default function LoginLogsPage() {
                 >
 
                   {/* NAME */}
-                  <td className="px-6 py-4 font-medium text-gray-800">
+                  <td className="px-6 py-4 font-medium text-gray-800 text-left">
                     {log.name}
                   </td>
 
                   {/* ROLE */}
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-left">
 
                     <span
                       className={`
@@ -256,54 +295,85 @@ export default function LoginLogsPage() {
 
         <div
           className="
-            flex items-center justify-between
-            px-6 py-4
+            flex justify-center
+            items-center
+            gap-3
+            py-4
             border-t
             bg-gray-50
           "
         >
 
-          <p className="text-sm text-gray-500">
-            Page {currentPage} of {totalPages}
-          </p>
+          {/* PREV */}
+          <button
+            onClick={() => setCurrentPage(prev => prev - 1)}
+            disabled={currentPage === 1}
+            className="
+              px-3 py-1
+              bg-gray-200
+              rounded-md
+              hover:bg-gray-300
+              disabled:opacity-50
+            "
+          >
+            Prev
+          </button>
 
-          <div className="flex gap-2">
+          {/* PAGE NUMBERS */}
+          {getPageNumbers().map((page, index) => {
 
-            {/* PREVIOUS */}
-            <button
-              onClick={() =>
-                setCurrentPage((prev) => prev - 1)
-              }
-              disabled={currentPage === 1}
-              className="
-                px-4 py-2
-                border rounded-lg
-                text-sm
-                disabled:opacity-50
-                hover:bg-gray-100
-              "
-            >
-              Previous
-            </button>
+            if (page === '...') {
+              return (
+                <span
+                  key={index}
+                  className="
+                    px-3 py-1
+                    text-gray-500
+                    font-medium
+                  "
+                >
+                  ...
+                </span>
+              );
+            }
 
-            {/* NEXT */}
-            <button
-              onClick={() =>
-                setCurrentPage((prev) => prev + 1)
-              }
-              disabled={currentPage === totalPages}
-              className="
-                px-4 py-2
-                border rounded-lg
-                text-sm
-                disabled:opacity-50
-                hover:bg-gray-100
-              "
-            >
-              Next
-            </button>
+            return (
+              <button
+                key={`${page}-${index}`}
+                onClick={() => setCurrentPage(page)}
+                className={`
+                  px-3 py-1
+                  rounded-md
+                  font-medium
+                  transition
 
-          </div>
+                  ${
+                    currentPage === page
+                      ? 'bg-blue-600 text-white shadow'
+                      : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                  }
+                `}
+              >
+                {page}
+              </button>
+            );
+
+          })}
+
+          {/* NEXT */}
+          <button
+            onClick={() => setCurrentPage(prev => prev + 1)}
+            disabled={currentPage === totalPages}
+            className="
+              px-3 py-1
+              bg-gray-200
+              rounded-md
+              hover:bg-gray-300
+              disabled:opacity-50
+            "
+          >
+            Next
+          </button>
 
         </div>
 

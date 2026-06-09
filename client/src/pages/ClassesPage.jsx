@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import api from '../services/api';
 import { ArrowUp, ArrowDown } from 'lucide-react';
-
+import toast from 'react-hot-toast';
 export default function ClassesPage() {
 
   const [classes, setClasses] = useState([]);
@@ -31,6 +31,11 @@ export default function ClassesPage() {
       setClasses(res.data);
     } catch (err) {
       console.log(err.response?.data);
+
+      toast.error(
+        err.response?.data?.message ||
+        'Failed to load Classes'
+      );
     } finally {
       setLoading(false);
     }
@@ -105,23 +110,64 @@ export default function ClassesPage() {
   // CREATE
   // ==============================
   const handleCreate = async () => {
-    await api.post('/classes', form);
-    setForm({ code: '', name: '' });
-    fetchClasses();
-  };
+    if (!form.code.trim()) {
+      return toast.error(
+        'Class code is required'
+      );
+    }
 
+    if (!form.name.trim()) {
+      return toast.error(
+        'Class name is required'
+      );
+    }
+    try {
+
+      await toast.promise(
+        api.post('/classes', form),
+        {
+          loading: 'Creating class...',
+          success: 'Class created successfully',
+          error: 'Failed to create class'
+        }
+      );
+
+      setForm({
+        code: '',
+        name: ''
+      });
+
+      fetchClasses();
+
+    } catch {}
+  };
   // ==============================
   // TOGGLE STATUS (SAMA KAYAK USERS)
   // ==============================
   const handleToggle = async (id, current) => {
     try {
-      await api.patch(`/classes/${id}/status`, {
-        is_active: !current
-      });
+
+      await api.patch(
+        `/classes/${id}/status`,
+        {
+          is_active: !current
+        }
+      );
+
+      toast.success(
+        !current
+          ? 'Class activated successfully'
+          : 'Class deactivated successfully'
+      );
 
       fetchClasses();
+
     } catch (err) {
-      console.log(err.response?.data);
+
+      toast.error(
+        err.response?.data?.message ||
+        'Failed to update class status'
+      );
     }
   };
 
@@ -228,9 +274,27 @@ export default function ClassesPage() {
 
                   <button
                 onClick={async () => {
-                    if (!confirm('Delete this class?')) return;
-                    await api.delete(`/classes/${c.id}`);
+                  if (!confirm('Delete this class?')) return;
+
+                  try {
+
+                    await api.delete(
+                      `/classes/${c.id}`
+                    );
+
+                    toast.success(
+                      'Class deleted successfully'
+                    );
+
                     fetchClasses();
+
+                  } catch (err) {
+
+                    toast.error(
+                      err.response?.data?.message ||
+                      'Failed to delete class'
+                    );
+                  }
                   }}
                   className="bg-red-500 text-white px-2 py-1 rounded"
                 >
@@ -319,9 +383,25 @@ export default function ClassesPage() {
 
               <button
                 onClick={async () => {
-                  await api.put(`/classes/${editingClass.id}`, editingClass);
-                  setEditingClass(null);
-                  fetchClasses();
+                  try {
+
+                    await toast.promise(
+                      api.put(
+                        `/classes/${editingClass.id}`,
+                        editingClass
+                      ),
+                      {
+                        loading: 'Saving changes...',
+                        success: 'Class updated successfully',
+                        error: 'Failed to update class'
+                      }
+                    );
+
+                    setEditingClass(null);
+
+                    fetchClasses();
+
+                  } catch {}
                 }}
                 className="px-3 py-1 bg-blue-600 text-white rounded"
               >

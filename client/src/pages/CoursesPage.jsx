@@ -13,6 +13,14 @@ export default function CoursesPage() {
   const [classes, setClasses] = useState([]);
   const [teachers, setTeachers] = useState([]);
 
+  const [editingCourse, setEditingCourse] = useState(null);
+
+  const [assignModal, setAssignModal] = useState(false);
+
+  const [assignedClasses,setAssignedClasses] = useState([]);
+
+  const [selectedCourse, setSelectedCourse] = useState(null);
+
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
@@ -23,7 +31,7 @@ export default function CoursesPage() {
   const [sortKey, setSortKey] = useState('');
   const [sortOrder, setSortOrder] = useState('asc');
 
-  const [editingCourse, setEditingCourse] = useState(null);
+
 
   const [form, setForm] = useState({
     title: '',
@@ -319,17 +327,38 @@ const filteredCourses = courses
         <table className="w-full text-left">
           <thead className="bg-gray-100">
             <tr>
-              <th onClick={() => handleSort('title')} className="p-3 cursor-pointer">
+
+              <th
+                onClick={() => handleSort('title')}
+                className="p-3 cursor-pointer"
+              >
                 Title {renderSortIcon('title')}
               </th>
 
-              <th className="p-3">Description</th>
+              <th className="p-3">
+                Description
+              </th>
 
-              <th onClick={() => handleSort('teacher_name')} className="p-3 cursor-pointer">
+              <th
+                onClick={() => handleSort('teacher_name')}
+                className="p-3 cursor-pointer"
+              >
                 Teacher {renderSortIcon('teacher_name')}
               </th>
 
-              {role === 'admin' && <th className="p-3">Actions</th>}
+              {role === 'admin' && (
+                <>
+                  <th className="p-3">
+                    Class
+                  </th>
+
+                  <th className="p-3">
+                    Actions
+                  </th>
+                  
+                </>
+              )}
+
             </tr>
           </thead>
 
@@ -349,6 +378,41 @@ const filteredCourses = courses
                     {c.teacher_name || '-'}
                   </span>
                 </td>
+
+                {role === 'admin' && (
+                  <td className="p-3">
+
+                    <button
+                      onClick={async (e) => {
+
+                        e.stopPropagation();
+
+                        setSelectedCourse(c);
+
+                        const res =
+                          await api.get(
+                            `/courses/${c.id}/classes`
+                          );
+
+                        setAssignedClasses(
+                          res.data
+                        );
+
+                        setAssignModal(true);
+
+                      }}
+                      className="
+                        bg-green-500
+                        text-white
+                        px-2 py-1
+                        rounded
+                      "
+                    >
+                      Assign Class
+                    </button>
+
+                  </td>
+                )}
 
                 {role === 'admin' && (
                   <td className="p-3 flex gap-2">
@@ -428,6 +492,208 @@ const filteredCourses = courses
 
       </div>
       </div>
+
+{assignModal && selectedCourse && (
+
+  <div className="
+    fixed inset-0
+    bg-black/40
+    flex items-center justify-center
+  ">
+
+    <div className="
+      bg-white
+      p-6
+      rounded-xl
+      w-96
+    ">
+
+      <h2 className="font-semibold mb-4">
+        Assign Class
+      </h2>
+
+      <p className="mb-4 text-sm text-gray-500">
+        {selectedCourse.title}
+      </p>
+
+      <div className="mb-4">
+
+        <p className="font-medium mb-2">
+          Assigned Classes
+        </p>
+
+        {assignedClasses.length === 0 ? (
+
+          <p className="text-gray-400 text-sm">
+            No class assigned
+          </p>
+
+        ) : (
+
+assignedClasses.map(cls => (
+
+  <div
+    key={cls.id}
+    className="
+      flex
+      justify-between
+      items-center
+      bg-blue-100
+      text-blue-600
+      px-2
+      py-1
+      rounded
+      mb-1
+    "
+  >
+
+    <span>
+      {cls.name}
+    </span>
+
+    <button
+      onClick={async () => {
+
+        try {
+
+          await api.delete(
+            '/courses/assign',
+            {
+              data: {
+                course_id:
+                  selectedCourse.id,
+
+                class_id:
+                  cls.id
+              }
+            }
+          );
+
+          const res =
+            await api.get(
+              `/courses/${selectedCourse.id}/classes`
+            );
+
+          setAssignedClasses(
+            res.data
+          );
+
+          toast.success(
+            'Class removed'
+          );
+
+        } catch (err) {
+
+          toast.error(
+            err.response?.data?.message ||
+            'Failed to remove class'
+          );
+
+        }
+
+      }}
+      className="
+        text-red-500
+        font-bold
+      "
+    >
+      X
+    </button>
+
+  </div>
+
+))
+
+        )}
+
+      </div>
+
+      {classes
+        .filter(
+          cls =>
+            !assignedClasses.some(
+              ac => ac.id === cls.id
+            )
+        )
+        .map((cls) => (
+
+          <button
+            key={cls.id}
+            
+          onClick={async () => {
+
+            try {
+
+              await api.post(
+                '/courses/assign',
+                {
+                  course_id:
+                    selectedCourse.id,
+
+                  class_id:
+                    cls.id
+                }
+              );
+
+              const res =
+                await api.get(
+                  `/courses/${selectedCourse.id}/classes`
+                );
+
+              setAssignedClasses(
+                res.data
+              );
+
+              toast.success(
+                'Course assigned successfully'
+              );
+
+            } catch (err) {
+
+              toast.error(
+                err.response?.data?.message ||
+                'Failed to assign course'
+              );
+
+            }
+
+          }}
+          className="
+            block
+            w-full
+            text-left
+            border
+            p-2
+            mb-2
+            rounded
+          "
+        >
+          {cls.name}
+        </button>
+
+      ))}
+
+      <button
+        onClick={() => {
+          setAssignModal(false);
+          setSelectedCourse(null);
+        }}
+        className="
+          mt-3
+          w-full
+          bg-gray-300
+          rounded
+          p-2
+        "
+      >
+        Close
+      </button>
+
+    </div>
+
+  </div>
+
+)}     
     </Layout>
   );
 }

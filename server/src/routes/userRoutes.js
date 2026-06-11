@@ -264,6 +264,10 @@ router.delete('/:id', authMiddleware, roleMiddleware(['admin']), async (req, res
   const { id } = req.params;
 
   try {
+    await pool.query('DELETE FROM login_logs WHERE user_id = $1', [id]);
+
+    await pool.query('DELETE FROM notifications WHERE user_id = $1', [id]);
+    
     await pool.query('DELETE FROM enrollments WHERE student_id = $1', [id]);
 
     await pool.query('DELETE FROM users WHERE id = $1', [id]);

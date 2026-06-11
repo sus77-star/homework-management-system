@@ -5,6 +5,50 @@ const pool = require('../../config/db');
 const auth = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 
+router.delete(
+  '/assign',
+  auth,
+  roleMiddleware(['admin']),
+  async (req, res) => {
+
+    const {
+      course_id,
+      class_id
+    } = req.body;
+
+    try {
+
+      await pool.query(
+        `
+        DELETE FROM class_courses
+        WHERE
+          course_id = $1
+          AND class_id = $2
+        `,
+        [
+          course_id,
+          class_id
+        ]
+      );
+
+      res.json({
+        message:
+          'Course unassigned'
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        message:
+          'Failed to unassign course'
+      });
+
+    }
+  }
+);
+
 
 router.delete(
   '/:id',
@@ -68,7 +112,7 @@ router.post('/', auth, roleMiddleware(['admin']), async (req, res) => {
 });
 
 // ==============================
-// ASSIGN COURSE → CLASS (ADMIN)
+// ASSIGN COURSE  CLASS (ADMIN)
 // ==============================
 router.post('/assign', auth, roleMiddleware(['admin']), async (req, res) => {
   const { course_id, class_id } = req.body;
@@ -97,6 +141,34 @@ router.post('/assign', auth, roleMiddleware(['admin']), async (req, res) => {
     res.status(500).json({ message: 'Error assigning course' });
   }
 });
+
+
+router.get(
+  '/:id/classes',
+  auth,
+  async (req, res) => {
+
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `
+      SELECT
+        c.id,
+        c.name
+
+      FROM classes c
+
+      JOIN class_courses cc
+        ON cc.class_id = c.id
+
+      WHERE cc.course_id = $1
+      `,
+      [id]
+    );
+
+    res.json(result.rows);
+  }
+);
 
 // ==============================
 // GET COURSES BASED ON ROLE
@@ -178,7 +250,7 @@ router.get('/', auth, async (req, res) => {
     const result = await pool.query(query, params);
 
     // =========================
-    // COUNT (sesuai role)
+    // COUNT
     // =========================
     let countQuery = '';
     let countParams = [];
@@ -216,6 +288,45 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+router.get(
+  '/:id/classes',
+  auth,
+  async (req, res) => {
+
+    const { id } = req.params;
+
+    try {
+
+      const result = await pool.query(
+        `
+        SELECT
+          c.id,
+          c.name
+
+        FROM classes c
+
+        JOIN class_courses cc
+          ON cc.class_id = c.id
+
+        WHERE cc.course_id = $1
+        `,
+        [id]
+      );
+
+      res.json(result.rows);
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        message:
+          'Error fetching classes'
+      });
+
+    }
+  }
+);
 // ==============================
 // GET COURSE DETAIL
 // ==============================

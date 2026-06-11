@@ -113,7 +113,7 @@ exports.loginUser = async (req, res) => {
       },
       process.env.JWT_SECRET,
       {
-        expiresIn: process.env.JWT_EXPIRES_IN || '1H'
+        expiresIn: process.env.JWT_EXPIRES_IN || '5s'
       }
     );
 

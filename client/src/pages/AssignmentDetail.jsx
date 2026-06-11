@@ -2646,15 +2646,15 @@ for (const q of questions) {
 
                 <thead className="bg-gray-100">
                   <tr>
-                    <th className="p-4 text-center font-semibold text-black">
+                    <th className="p-4 text-left font-semibold text-black">
                       Student
                     </th>
 
-                    <th className="p-4 text-center font-semibold text-black">
+                    <th className="p-4 text-left font-semibold text-black">
                       Reason
                     </th>
 
-                    <th className="p-4 text-center font-semibold text-black">
+                    <th className="p-4 text-left font-semibold text-black">
                       Status
                     </th>
 

@@ -83,7 +83,7 @@ FROM assignment_reminders;
 
 UPDATE assignment_reminders
 SET reminder_time = NOW()
-WHERE id = 47;
+WHERE id = 52;
 
 SELECT *
 FROM notifications
